@@ -172,17 +172,6 @@ export function HeaderBar({ settings }: { settings: BusinessSettingsDoc }) {
               </svg>
             </Link>
 
-            <Link
-              href="/admin/login"
-              className="hidden h-11 w-11 items-center justify-center rounded-full text-jaggery-500 transition-colors hover:bg-jaggery-500/[0.06] xl:flex"
-              aria-label="Account"
-            >
-              <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                <circle cx="12" cy="8.5" r="3.5" />
-                <path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" />
-              </svg>
-            </Link>
-
             <button
               type="button"
               onClick={openDrawer}
@@ -291,7 +280,6 @@ export function HeaderBar({ settings }: { settings: BusinessSettingsDoc }) {
             <ul className="space-y-0.5">
               {[
                 { label: 'Track Order', href: ALL_ROUTES.trackOrder },
-                { label: 'FAQ', href: ALL_ROUTES.faq },
                 { label: 'Your Cart', href: ALL_ROUTES.cart },
               ].map((item) => (
                 <li key={item.href}>
