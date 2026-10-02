@@ -58,7 +58,7 @@ export interface MediaRef {
  * here without a corresponding product would put a flavour on the storefront
  * that nobody can buy.
  */
-export const PRODUCT_FLAVOURS = ['classic', 'til'] as const;
+export const PRODUCT_FLAVOURS = ['classic', 'til', 'elaichi'] as const;
 export type ProductFlavour = (typeof PRODUCT_FLAVOURS)[number];
 
 export interface NutritionRow {

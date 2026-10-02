@@ -12,6 +12,7 @@ const FLAVOURS: Array<{ value: string; label: string }> = [
   { value: 'all', label: 'All flavours' },
   { value: 'classic', label: 'Classic' },
   { value: 'til', label: 'Til (sesame)' },
+  { value: 'elaichi', label: 'Elaichi (cardamom)' },
 ];
 
 const SORTS: Array<{ value: string; label: string }> = [

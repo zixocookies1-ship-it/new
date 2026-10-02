@@ -80,7 +80,7 @@ export function Hero({
           <Reveal delay={180}>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <ButtonLink href="/shop" variant="accent" className="sm:w-auto">
-                Shop all products
+                Shop all flavours
               </ButtonLink>
               <ButtonLink href="/why-natures-choice" variant="outline">
                 Why Nature’s Choice

@@ -19,17 +19,17 @@ export function FlavoursSection({
   content: ContentDoc | null;
   products: ProductVM[];
 }) {
-  const three = products.slice(0, 2);
+  const three = products.slice(0, 3);
 
   return (
     <section id="flavours" className="bg-cream-100 py-14 sm:py-20">
       <div className="nc-container">
         <SectionHeading
           eyebrow={content?.eyebrow?.trim() || 'Our flavours'}
-          title={content?.title?.trim() || 'Two flavours, one base'}
+          title={content?.title?.trim() || 'Three flavours, one base'}
           description={
             content?.body?.trim() ||
-            'Classic and roasted sesame (til) — each built on the same jaggery base.'
+            'Classic, roasted sesame (til) and elaichi — each built on the same jaggery base.'
           }
           as="h2"
           className="[&_h2]:!text-3xl sm:[&_h2]:!text-4xl"
@@ -37,7 +37,7 @@ export function FlavoursSection({
 
         {three.length > 0 ? (
           <Reveal className="mt-10 sm:mt-12">
-            <ProductGrid products={three} columns={2} />
+            <ProductGrid products={three} columns={3} />
           </Reveal>
         ) : (
           <p className="mt-10 text-center text-sm text-ink-muted">
