@@ -1,0 +1,13 @@
+{
+  "$comment": "tsconfig for the tsx-run maintenance scripts. Kept separate from the app config so aliasing `server-only` to a no-op can never affect a Next.js build.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../src/*"],
+      "server-only": ["./server-only-noop.ts"]
+    },
+    "noEmit": true
+  },
+  "include": ["**/*.ts", "../src/**/*.ts", "../src/**/*.tsx"]
+}

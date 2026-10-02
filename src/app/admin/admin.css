@@ -1,0 +1,38 @@
+/*
+ * Admin-only styles.
+ *
+ * Scoped to the panel's own class names so nothing here can leak into the
+ * storefront, and vice versa. Tailwind utilities carry the brand palette; this
+ * file only holds the few things utilities cannot express (focus rings inside
+ * dense tables, sticky sub-header offsets, print handling).
+ */
+
+.admin-focus :focus-visible {
+  outline: 2px solid #5a321f;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.admin-table-scroll {
+  scrollbar-width: thin;
+}
+
+.admin-table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.admin-table-scroll::-webkit-scrollbar-thumb {
+  background: #e0d5c0;
+  border-radius: 999px;
+}
+
+/* The sticky admin sub-header must clear the main header on small screens. */
+.admin-sticky-offset {
+  top: var(--admin-header-h, 56px);
+}
+
+@media print {
+  .admin-no-print {
+    display: none !important;
+  }
+}

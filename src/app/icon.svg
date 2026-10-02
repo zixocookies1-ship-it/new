@@ -1,0 +1,18 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 32 32"
+  width="32"
+  height="32"
+  role="img"
+  aria-label="Nature's Choice Jaggery"
+>
+  <!-- Favicon uses the brand's deep jaggery brown so it stays legible on both
+       light and dark browser chrome. The mark is the same stylised jar used in
+       the header wordmark — abstract, not a fabricated pack shot. -->
+  <rect width="32" height="32" rx="7" fill="#5A321F" />
+  <g fill="none" stroke="#F7F1E7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11.6 12.6h8.8l-.8 10.7a1.8 1.8 0 0 1-1.8 1.6h-3.6a1.8 1.8 0 0 1-1.8-1.6l-.8-10.7Z" fill="#F7F1E7" fill-opacity="0.22" stroke-width="1.7" />
+    <path d="M10.3 12.6h11.4" stroke-width="1.7" />
+    <path d="M13.4 12.6v-1.5a2.6 2.6 0 0 1 5.2 0v1.5" stroke-width="1.7" />
+  </g>
+</svg>
