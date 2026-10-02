@@ -147,16 +147,6 @@ export function HeaderBar({ settings }: { settings: BusinessSettingsDoc }) {
 
           {/* Right: actions — cart is always present and thumb-reachable */}
           <div className="flex flex-1 items-center justify-end gap-0.5">
-            <Link
-              href={ALL_ROUTES.trackOrder}
-              className="hidden h-11 w-11 items-center justify-center rounded-full text-jaggery-500 transition-colors hover:bg-jaggery-500/[0.06] sm:flex"
-              aria-label="Track your order"
-            >
-              <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5 3.5 16.5v-9Z" />
-                <path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9" />
-              </svg>
-            </Link>
 
             <Link
               href={ALL_ROUTES.cart}
