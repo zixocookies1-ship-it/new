@@ -112,9 +112,11 @@ export function Footer({
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-5 lg:gap-6">
             <FooterColumn title="Shop" links={FOOTER_NAV.shop} />
             <FooterColumn title="Learn" links={FOOTER_NAV.learn} />
-            <div className="col-span-2 sm:col-span-1">
-              <FooterColumn title="Policies" links={FOOTER_NAV.policies} />
-            </div>
+            {FOOTER_NAV.policies.length > 0 && (
+              <div className="col-span-2 sm:col-span-1">
+                <FooterColumn title="Policies" links={FOOTER_NAV.policies} />
+              </div>
+            )}
           </div>
 
           {/* Contact */}
@@ -212,28 +214,6 @@ export function Footer({
           <p className="text-xs text-cream-200/60">
             © {year} {settings.legalName || settings.brandName || BRAND.name}. All rights reserved.
           </p>
-          <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-cream-200/60">
-            <li>
-              <Link href="/privacy-policy" className="transition-colors hover:text-cream-50">
-                Privacy
-              </Link>
-            </li>
-            <li>
-              <Link href="/terms" className="transition-colors hover:text-cream-50">
-                Terms
-              </Link>
-            </li>
-            <li>
-              <Link href="/shipping-policy" className="transition-colors hover:text-cream-50">
-                Shipping
-              </Link>
-            </li>
-            <li>
-              <Link href="/cancellation-refund-return" className="transition-colors hover:text-cream-50">
-                Refunds
-              </Link>
-            </li>
-          </ul>
         </div>
       </div>
     </footer>

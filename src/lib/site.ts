@@ -51,13 +51,7 @@ export const FOOTER_NAV = {
     { label: 'Recipes', href: '/recipes' },
     { label: 'FAQ', href: '/faq' },
   ],
-  policies: [
-    { label: 'Shipping Policy', href: '/shipping-policy' },
-    { label: 'Cancellation, Refund & Return', href: '/cancellation-refund-return' },
-    { label: 'Privacy Policy', href: '/privacy-policy' },
-    { label: 'Terms & Conditions', href: '/terms' },
-    { label: 'Cookie Policy', href: '/cookie-policy' },
-  ],
+  policies: [],
 } as const;
 
 export const ALL_ROUTES = {
