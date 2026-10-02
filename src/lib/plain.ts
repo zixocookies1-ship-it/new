@@ -29,11 +29,13 @@ function isObjectId(value: object): value is { toHexString(): string } {
 }
 
 function isDecimal(value: object): value is { toString(): string } {
-  return typeof (value as { _bsontype?: unknown })._bsontype === 'Decimal128';
+  const v = value as { _bsontype?: unknown };
+  return v._bsontype === 'Decimal128' as unknown;
 }
 
 function isBinary(value: object): boolean {
-  return typeof (value as { _bsontype?: unknown })._bsontype === 'Binary';
+  const v = value as { _bsontype?: unknown };
+  return v._bsontype === 'Binary' as unknown;
 }
 
 function walk(value: unknown, seen: WeakMap<object, unknown>): unknown {
@@ -50,12 +52,12 @@ function walk(value: unknown, seen: WeakMap<object, unknown>): unknown {
   if (isObjectId(value)) return value.toHexString();
   if (isDecimal(value)) return Number(value.toString());
   if (isBinary(value)) return String((value as { buffer?: unknown }).toString());
-  if (value instanceof Map) {
+  if ((value as any) instanceof Map) {
     const out: Record<string, unknown> = {};
-    for (const [k, v] of value) out[String(k)] = walk(v, seen);
+    for (const [k, v] of value as Map<unknown, unknown>) out[String(k)] = walk(v, seen);
     return out;
   }
-  if (value instanceof Set) return [...value].map((v) => walk(v, seen));
+  if ((value as any) instanceof Set) return [...(value as Set<unknown>)].map((v) => walk(v, seen));
 
   // Anything still non-plain (a class instance, a Buffer) becomes a string
   // rather than silently reaching React and failing there.
