@@ -1,16 +1,13 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { notFound } from 'next/navigation';
 
+import { buildMetadata } from '@/lib/seo';
+import { getShopData, SETTINGS_DEFAULTS } from '@/lib/catalog';
 import { ShopClient } from '@/components/shop/ShopClient';
-import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
-import { getShopData } from '@/lib/catalog';
-import { buildMetadata, breadcrumbJsonLd, jsonLdScript } from '@/lib/seo';
-import { SETTINGS_DEFAULTS } from '@/lib/models/BusinessSettings';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
-/** Next.js always hands page props a Promise for `searchParams` (App Router). */
-type SearchParams = Promise<{ q?: string }>;
+type SearchParams = Record<string, string | string[] | undefined>;
 
 export async function generateMetadata({
   searchParams,
@@ -49,29 +46,19 @@ export default async function ShopPage({ searchParams }: { searchParams?: Search
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: jsonLdScript(
-            breadcrumbJsonLd([
-              { name: 'Home', path: '/' },
-              { name: 'Shop', path: '/shop' },
-            ]),
-          ),
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'CollectionPage',
+            name: 'Shop',
+            description: 'Browse Nature’s Choice chocolatey jaggery jars.',
+          }),
         }}
       />
 
-      <div className="bg-cream-100">
-        <div className="nc-container py-8 sm:py-12">
-          <Breadcrumbs
-            items={[
-              { label: 'Home', href: '/' },
-              { label: 'Shop' },
-            ]}
-          />
-
-          <div className="mt-6 max-w-2xl">
-            <p className="nc-eyebrow mb-3">The full range</p>
-            <h1 className="nc-h2">
-              {query ? `Results for “${query}”` : 'Every flavour, every pack size'}
-            </h1>
+      <section className="bg-cream-100 pt-8 pb-16 sm:pt-10 sm:pb-20">
+        <div className="nc-container">
+          <div className="mx-auto max-w-2xl text-center">
+            <h1 className="nc-h1">Shop chocolatey jaggery</h1>
             <p className="nc-lede mt-4">
               {query
                 ? `${products.length} product${products.length === 1 ? '' : 's'} available.`
@@ -87,15 +74,11 @@ export default async function ShopPage({ searchParams }: { searchParams?: Search
             <div className="mt-12 rounded-card border border-cream-300 bg-white p-6 text-center shadow-card">
               <h2 className="font-display text-xl text-jaggery-500">Looking for the pair?</h2>
               <p className="nc-body mt-2 text-ink-muted">
-                The duo bundle brings both flavours together — easy to share, easier to gift.
-              </p>
-              <Link href="/#trio-bundle" className="nc-btn-primary nc-btn-sm mt-4 inline-flex">
-                See the trio bundle
-              </Link>
+                The duo bundle brings both flavours together — easy to share, easier to gift. </p>
             </div>
           ) : null}
         </div>
-      </div>
+      </section>
     </>
   );
 }
