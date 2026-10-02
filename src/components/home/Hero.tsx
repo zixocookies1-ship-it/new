@@ -116,6 +116,7 @@ export function Hero({
             <div className="overflow-hidden rounded-[2rem] border border-cream-300/80 bg-white shadow-card">
               <OptimizedImage
                 media={featured?.primaryImage ?? content?.images?.[0] ?? null}
+                src="/media/products/Screenshot 2026-10-02 215529.png"
                 alt={
                   featured?.primaryImage?.alt ||
                   content?.images?.[0]?.alt ||

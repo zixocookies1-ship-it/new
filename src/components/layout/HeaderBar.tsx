@@ -141,26 +141,12 @@ export function HeaderBar({ settings }: { settings: BusinessSettingsDoc }) {
           </div>
 
           {/* Centre: logo (desktop) */}
-          <div className="hidden flex-1 justify-center lg:flex">
+          <div className="hidden flex-1 justify-end lg:flex">
             <Logo logo={settings.logo as MediaRef | null} priority />
           </div>
 
           {/* Right: actions — cart is always present and thumb-reachable */}
           <div className="flex flex-1 items-center justify-end gap-0.5">
-            <button
-              type="button"
-              onClick={() => setSearchOpen((v) => !v)}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-jaggery-500 transition-colors hover:bg-jaggery-500/[0.06]"
-              aria-label="Search products"
-              aria-expanded={searchOpen}
-              aria-controls="header-search"
-            >
-              <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
-                <circle cx="11" cy="11" r="6.5" />
-                <path d="m16 16 4 4" />
-              </svg>
-            </button>
-
             <Link
               href={ALL_ROUTES.trackOrder}
               className="hidden h-11 w-11 items-center justify-center rounded-full text-jaggery-500 transition-colors hover:bg-jaggery-500/[0.06] sm:flex"
@@ -172,9 +158,8 @@ export function HeaderBar({ settings }: { settings: BusinessSettingsDoc }) {
               </svg>
             </Link>
 
-            <button
-              type="button"
-              onClick={openDrawer}
+            <Link
+              href={ALL_ROUTES.cart}
               className="relative -mr-2 flex h-11 items-center gap-1.5 rounded-full px-2.5 text-jaggery-500 transition-colors hover:bg-jaggery-500/[0.06]"
               aria-label={hydrated && count > 0 ? `Cart, ${count} item${count === 1 ? '' : 's'}` : 'Cart, empty'}
             >
@@ -190,7 +175,7 @@ export function HeaderBar({ settings }: { settings: BusinessSettingsDoc }) {
                   {count > 99 ? '99+' : count}
                 </span>
               ) : null}
-            </button>
+            </Link>
           </div>
         </div>
       </div>
