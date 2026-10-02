@@ -15,15 +15,15 @@ export function FinalCtaSection({
   settings,
 }: {
   content: ContentDoc | null;
-  settings: BusinessSettingsDoc;
+  settings?: BusinessSettingsDoc;
 }) {
   const title = content?.title?.trim() || 'Ready when you are';
   const body =
     content?.body?.trim() ||
     'Pick a flavour, choose your pack size, and we will handle the rest from there.';
 
-  const supportEmail = settings.supportEmail?.trim();
-  const supportPhone = settings.supportPhone?.trim();
+  const supportEmail = settings?.supportEmail?.trim();
+  const supportPhone = settings?.supportPhone?.trim();
 
   return (
     <section className="bg-cream-100 pb-16 pt-4 sm:pb-24">

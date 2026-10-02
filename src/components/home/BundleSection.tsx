@@ -5,6 +5,7 @@ import { SectionHeading } from '@/components/ui/StateBlocks';
 import { AddBundleButton, BundlePrice, type BundleCartItem } from '@/components/cart/AddBundleButton';
 import type { BundleVM, ProductVM } from '@/lib/catalog';
 import type { ContentDoc } from '@/lib/models/Content';
+import type { BusinessSettingsDoc } from '@/lib/models/BusinessSettings';
 
 /**
  * Section 10 — Trio bundle.
@@ -17,10 +18,12 @@ export function BundleSection({
   content,
   bundles,
   products,
+  settings,
 }: {
   content: ContentDoc | null;
   bundles: BundleVM[];
   products: ProductVM[];
+  settings?: BusinessSettingsDoc;
 }) {
   const bundle = bundles[0] ?? null;
 

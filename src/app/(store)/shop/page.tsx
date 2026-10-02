@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { buildMetadata } from '@/lib/seo';
-import { getShopData, SETTINGS_DEFAULTS } from '@/lib/catalog';
+import { getShopData } from '@/lib/catalog';
+import { SETTINGS_DEFAULTS } from '@/lib/models/BusinessSettings';
 import { ShopClient } from '@/components/shop/ShopClient';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ type SearchParams = Record<string, string | string[] | undefined>;
 export async function generateMetadata({
   searchParams,
 }: {
-  searchParams?: SearchParams;
+  searchParams?: Promise<SearchParams>;
 }): Promise<Metadata> {
   const sp = (await searchParams) ?? {};
   const { settings } = await getShopData().catch(() => ({
@@ -22,7 +23,7 @@ export async function generateMetadata({
     settings: { ...SETTINGS_DEFAULTS } as never,
   }));
 
-  const q = sp.q?.trim();
+  const q = Array.isArray(sp.q) ? sp.q[0]?.trim() : sp.q?.trim();
   const base = {
     title: q ? `Search: ${q}` : 'Shop',
     description:
@@ -33,9 +34,9 @@ export async function generateMetadata({
   return buildMetadata(settings, base);
 }
 
-export default async function ShopPage({ searchParams }: { searchParams?: SearchParams }) {
+export default async function ShopPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
   const sp = (await searchParams) ?? {};
-  const query = sp.q?.trim() ?? '';
+  const query = Array.isArray(sp.q) ? sp.q[0]?.trim() ?? '' : sp.q?.trim() ?? '';
 
   const data = await getShopData().catch(() => null);
 
