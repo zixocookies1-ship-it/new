@@ -36,7 +36,7 @@ export interface NavItem {
 export const PRIMARY_NAV: NavItem[] = [
   { label: 'Home', href: '/' },
   { label: 'Shop', href: '/shop' },
-  { label: 'About', href: '/our-story' },
+  { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
 ];
 
@@ -49,7 +49,7 @@ export const FOOTER_NAV = {
   ],
   company: [
     { label: 'Home', href: '/' },
-    { label: 'About Us', href: '/our-story' },
+    { label: 'About Us', href: '/about' },
     { label: 'Contact', href: '/contact' },
   ],
   policies: [],
@@ -58,7 +58,7 @@ export const FOOTER_NAV = {
 export const ALL_ROUTES = {
   home: '/',
   shop: '/shop',
-  ourStory: '/our-story',
+  about: '/about',
   contact: '/contact',
   cart: '/cart',
   checkout: '/checkout',

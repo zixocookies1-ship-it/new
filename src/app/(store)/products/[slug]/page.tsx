@@ -317,7 +317,7 @@ export default async function ProductPage({ params }: Params) {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/our-story" className="nc-link">
+                  <Link href="/about" className="nc-link">
                     Read our story
                   </Link>
                 </li>

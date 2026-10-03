@@ -25,6 +25,18 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['mongoose'],
   },
 
+  // The brand story now lives on a single, complete About
+  // page. Anything still pointing at the old route lands on it.
+  async redirects() {
+    return [
+      {
+        source: '/our-story',
+        destination: '/about',
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {

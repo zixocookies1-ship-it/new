@@ -1,5 +1,6 @@
 import { Schema, model, models, type Model } from 'mongoose';
 import { connectDb } from '../db';
+import { serverEnv } from '../env';
 
 /**
  * Shipping + tax configuration.
@@ -73,9 +74,19 @@ export interface ShippingConfigurationDoc {
   allowCancellation: boolean;
   cancelWindowHours: number;
 
+  /**
+   * Bumped whenever the shipped defaults change. Used to bring a database that
+   * was created by an older build up to date *without* overwriting anything an
+   * admin has since configured.
+   */
+  configVersion: number;
+
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** Current shipped defaults. Bump this whenever `SHIPPING_DEFAULTS` changes. */
+export const SHIPPING_CONFIG_VERSION = 2;
 
 const ShippingConfigurationSchema = new Schema<ShippingConfigurationDoc>(
   {
@@ -201,6 +212,7 @@ export const SHIPPING_DEFAULTS: Omit<
 
   allowCancellation: true,
   cancelWindowHours: 24,
+  configVersion: SHIPPING_CONFIG_VERSION,
 };
 
 /** Read-through cached config, so pricing does not hit Mongo on every request. */

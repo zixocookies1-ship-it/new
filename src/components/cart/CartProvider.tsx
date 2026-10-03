@@ -82,7 +82,17 @@ interface CartState {
 }
 
 interface CartActions {
-  addItem: (item: Omit<CartItem, 'key' | 'qty'>, qty?: number) => void;
+  /**
+   * Adds an item to the cart. By default the cart drawer opens as the
+   * confirmation; pages that want to keep the customer in place (e.g.
+   * the About page flavour cards) pass `{ openDrawer: false }` and
+   * surface their own "Added" feedback instead.
+   */
+  addItem: (
+    item: Omit<CartItem, 'key' | 'qty'>,
+    qty?: number,
+    opts?: { openDrawer?: boolean },
+  ) => void;
   addBundle: (
     bundle: { bundleId: string; name: string; items: Array<{ productId: string; variantId: string; slug: string; name: string; flavour: string; weightLabel: string; imageUrl: string | null; unitPricePaise: number; mrpPaise: number | null; qty: number }> },
     qty?: number,
@@ -260,7 +270,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // --- actions -------------------------------------------------------------
   const addItem = useCallback(
-    (item: Omit<CartItem, 'key' | 'qty'>, qty = 1) => {
+    (
+      item: Omit<CartItem, 'key' | 'qty'>,
+      qty = 1,
+      opts?: { openDrawer?: boolean },
+    ) => {
       const key = `${item.productId}:${item.variantId}`;
       setItems((prev) => {
         const existing = prev.find((i) => i.key === key);
@@ -272,7 +286,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return [...prev, { ...item, key, qty: Math.min(20, Math.max(1, qty)) }];
       });
       broadcast();
-      setDrawerOpen(true);
+      if (opts?.openDrawer !== false) setDrawerOpen(true);
     },
     [broadcast],
   );

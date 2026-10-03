@@ -74,7 +74,7 @@ export function WhySection({ content }: { content: ContentDoc | null }) {
           )}
 
           <div className="mt-8">
-            <ButtonLink href="/our-story" variant="outline">
+            <ButtonLink href="/about" variant="outline">
               Read the full story
             </ButtonLink>
           </div>

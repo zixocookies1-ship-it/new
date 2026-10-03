@@ -76,7 +76,7 @@ export function StorySection({ content }: { content: ContentDoc | null }) {
           ) : null}
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <ButtonLink href="/our-story" variant="primary">
+            <ButtonLink href="/about" variant="primary">
               Read our story
             </ButtonLink>
             <Link href="/contact" className="nc-link text-sm">

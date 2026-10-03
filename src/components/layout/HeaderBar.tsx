@@ -144,8 +144,32 @@ export function HeaderBar({ settings }: { settings: BusinessSettingsDoc }) {
             <Logo logo={settings.logo as MediaRef | null} priority />
           </div>
 
-          {/* Right: actions — cart is always present and thumb-reachable */}
+          {/* Right: actions — search, account and cart stay permanently visible */}
           <div className="flex flex-1 items-center justify-end gap-0.5">
+            <button
+              type="button"
+              onClick={() => setSearchOpen((open) => !open)}
+              className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-jaggery-500 transition-colors hover:bg-jaggery-500/[0.06]"
+              aria-label={searchOpen ? 'Close search' : 'Search'}
+              aria-expanded={searchOpen}
+              aria-controls="header-search"
+            >
+              <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <circle cx="11" cy="11" r="6.5" />
+                <path d="m16 16 4 4" />
+              </svg>
+            </button>
+
+            <Link
+              href="/account"
+              className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-jaggery-500 transition-colors hover:bg-jaggery-500/[0.06]"
+              aria-label="Account"
+            >
+              <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="3.5" />
+                <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+              </svg>
+            </Link>
 
             <Link
               href={ALL_ROUTES.cart}
@@ -253,16 +277,36 @@ export function HeaderBar({ settings }: { settings: BusinessSettingsDoc }) {
 
             <ul className="space-y-0.5">
               {[
+                {
+                  label: 'Search',
+                  href: '#',
+                  action: () => {
+                    setMobileOpen(false);
+                    setSearchOpen(true);
+                  },
+                },
+                { label: 'Account', href: '/account' },
                 { label: 'Your Cart', href: ALL_ROUTES.cart },
               ].map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    tabIndex={mobileOpen ? 0 : -1}
-                    className="flex min-h-[48px] items-center rounded-xl px-3.5 text-[0.875rem] text-ink-soft hover:bg-cream-200/70"
-                  >
-                    {item.label}
-                  </Link>
+                <li key={item.label}>
+                  {item.action ? (
+                    <button
+                      type="button"
+                      onClick={item.action}
+                      tabIndex={mobileOpen ? 0 : -1}
+                      className="flex min-h-[48px] w-full items-center rounded-xl px-3.5 text-[0.875rem] text-ink-soft hover:bg-cream-200/70"
+                    >
+                      {item.label}
+                    </button>
+                  ) : (
+                    <Link
+                      href={item.href}
+                      tabIndex={mobileOpen ? 0 : -1}
+                      className="flex min-h-[48px] items-center rounded-xl px-3.5 text-[0.875rem] text-ink-soft hover:bg-cream-200/70"
+                    >
+                      {item.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

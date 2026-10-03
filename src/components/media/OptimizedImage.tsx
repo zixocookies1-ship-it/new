@@ -61,14 +61,22 @@ export function OptimizedImage({
     return <ImageFallback alt={alt} aspect={aspect} className={className} />;
   }
 
-  const source = publicId
-    ? cloudinaryUrl(publicId, {
-        width: maxWidth,
-        crop: 'limit',
-        quality: 'auto:good',
-        format: 'auto',
-      })
-    : rawUrl!;
+  // Assets whose id starts with `/` live in `public/` and are served
+  // by Next itself (then optimised on the fly by `next/image`). Only
+  // genuine Cloudinary public ids go through the delivery URL builder,
+  // and when no cloud name is configured we fall back to the stored
+  // URL rather than render a broken image.
+  const cloudinarySource =
+    publicId && !publicId.startsWith('/')
+      ? cloudinaryUrl(publicId, {
+          width: maxWidth,
+          crop: 'limit',
+          quality: 'auto:good',
+          format: 'auto',
+        })
+      : '';
+
+  const source = cloudinarySource || rawUrl || publicId || '';
 
   return (
     <div

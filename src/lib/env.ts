@@ -70,6 +70,29 @@ export const serverEnv = {
   /** Internal secret used to authenticate webhook delivery from Razorpay. */
   internalApiKey: str('INTERNAL_API_KEY'),
 
+  /**
+   * Commerce bootstrap.
+   *
+   * These seed the ShippingConfiguration singleton on a fresh database so a new
+   * install is immediately sellable. An admin editing Admin → Shipping always
+   * wins: these values are only ever applied to a pristine, never-configured
+   * document (see `bootstrapShippingDefaults`).
+   *
+   * All amounts are paise.
+   */
+  commerce: {
+    shippingEnabled: bool('SHIPPING_ENABLED', true),
+    flatShippingPaise: num('SHIPPING_FLAT_PAISE', 5900),
+    handlingPaise: num('SHIPPING_HANDLING_PAISE', 0),
+    freeShippingEnabled: bool('FREE_SHIPPING_ENABLED', true),
+    freeShippingThresholdPaise: num('FREE_SHIPPING_THRESHOLD_PAISE', 59900),
+    showEstimatedDelivery: bool('SHOW_ESTIMATED_DELIVERY', true),
+    estimatedDeliveryDaysMin: num('ESTIMATED_DELIVERY_DAYS_MIN', 3),
+    estimatedDeliveryDaysMax: num('ESTIMATED_DELIVERY_DAYS_MAX', 6),
+    /** Explicitly forces online payments off even when Razorpay keys exist. */
+    onlinePaymentEnabled: bool('ONLINE_PAYMENT_ENABLED', true),
+  },
+
   featureFlags: {
     delhiveryAutoCreate: bool('DELHIVERY_AUTO_CREATE', true),
     autoSyncDelhiveryStatus: bool('DELHIVERY_AUTO_STATUS_SYNC', false),

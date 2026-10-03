@@ -9,7 +9,7 @@ import { ALL_ROUTES, BRAND } from '@/lib/site';
 export default function StoreNotFound() {
   const suggestions = [
     { label: 'Shop all jaggery', href: ALL_ROUTES.shop, note: 'All three flavours in one place.' },
-    { label: 'Our story', href: ALL_ROUTES.ourStory, note: 'Who is behind Nature’s Choice.' },
+    { label: 'About us', href: ALL_ROUTES.about, note: 'Who is behind Nature’s Choice.' },
     { label: 'Contact us', href: ALL_ROUTES.contact, note: 'A person reads every message.' },
     { label: 'Your cart', href: ALL_ROUTES.cart, note: 'Review what you have picked.' },
   ];

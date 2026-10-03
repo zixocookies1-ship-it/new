@@ -10,7 +10,7 @@ import type { BusinessSettingsDoc } from '@/lib/models/BusinessSettings';
 import { formatINR } from '@/lib/money';
 
 /**
- * Client-supplied hero banner. Full-bleed, intrinsic 2:1 (1427 x 712).
+ * Client-supplied hero banner. Full-bleed, intrinsic 2:1 (955 x 477).
  * Filename is URL-safe (no spaces) so `next/image` can resolve it directly.
  */
 const HERO_BANNER = '/media/hero-banner.png';
@@ -119,7 +119,7 @@ export function Hero({
             fit="contain"
             sizes="100vw"
             priority
-            maxWidth={1427}
+            maxWidth={955}
             background="#FFFFFF"
             className="w-full"
           />

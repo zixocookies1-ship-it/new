@@ -60,9 +60,10 @@ interface SeedProduct {
   variants: SeedVariant[];
   seoTitle: string;
   seoDescription: string;
-  /** Local pack-shot used as the primary product image. */
-  imageSrc: string;
+  /** Alt text for the lead photo; the gallery appends "— view N". */
   imageAlt: string;
+  /** Local photo set, served from `public/media/products/`. */
+  gallery: SeedImage[];
 }
 
 /* ------------------------------------------------------------------------ */
@@ -93,25 +94,54 @@ function variantsFor(flavour: string): SeedVariant[] {
 }
 
 /**
- * A local pack-shot stored in the same `MediaRef` shape Cloudinary uses.
+ * A local photo stored in the same `MediaRef` shape Cloudinary uses.
  *
- * `publicId` is only used to build a Cloudinary delivery URL, and
- * `optimiseStoredUrl` passes a non-Cloudinary URL through untouched, so a local
- * `/media/...` path renders exactly like an uploaded asset. If Cloudinary is
- * configured later, re-upload via Admin → Media and the row is replaced.
+ * `OptimizedImage` serves anything whose id starts with `/` straight
+ * from `public/`, so a local `/media/...` path renders exactly like an
+ * uploaded asset. If Cloudinary is configured later, re-upload via
+ * Admin → Media and the row is replaced.
  */
-function localMedia(src: string, alt: string, order = 1): MediaRef {
+function localMedia(
+  src: string,
+  alt: string,
+  width: number,
+  height: number,
+  role: MediaRef['role'] = 'front_pack',
+  order = 1,
+): MediaRef {
   return {
     publicId: src,
     url: src,
     secureUrl: src,
-    width: 1427,
-    height: 712,
-    format: src.endsWith('.png') ? 'png' : 'jpg',
-    role: 'front_pack',
+    width,
+    height,
+    format: src.endsWith('.png') ? 'png' : 'jpeg',
+    role,
     alt,
     order,
   };
+}
+
+const PRODUCT_IMAGE_DIR = '/media/products';
+
+interface SeedImage {
+  file: string;
+  width: number;
+  height: number;
+}
+
+/** Full local photo set for a product: lead shot first, then the gallery. */
+function productImages(imageAlt: string, gallery: SeedImage[]): MediaRef[] {
+  return gallery.map((img, i) =>
+    localMedia(
+      `${PRODUCT_IMAGE_DIR}/${img.file}`,
+      i === 0 ? imageAlt : `${imageAlt} — view ${i + 1}`,
+      img.width,
+      img.height,
+      i === 0 ? 'front_pack' : 'gallery',
+      i + 1,
+    ),
+  );
 }
 
 const PRODUCTS: SeedProduct[] = [
@@ -134,8 +164,15 @@ const PRODUCTS: SeedProduct[] = [
     seoTitle: 'Desi Chocolatey Jaggery — classic Indian jaggery, 500 g',
     seoDescription:
       'Our original desi jaggery with a slow, chocolatey finish. 500 g pack, MRP ₹399, now ₹249.',
-    imageSrc: '/media/products/desi-chocolatey-jaggery-01-71XNT8BbzTL.jpg',
     imageAlt: 'Desi Chocolatey Jaggery — the classic 500 g jar',
+    gallery: [
+      { file: 'desi-chocolatey-jaggery-01.jpeg', width: 4000, height: 4000 },
+      { file: 'desi-chocolatey-jaggery-02.jpeg', width: 1254, height: 1254 },
+      { file: 'desi-chocolatey-jaggery-03.jpeg', width: 4000, height: 4000 },
+      { file: 'desi-chocolatey-jaggery-04.jpeg', width: 4000, height: 4000 },
+      { file: 'desi-chocolatey-jaggery-05.jpeg', width: 4000, height: 4000 },
+      { file: 'desi-chocolatey-jaggery-06.jpeg', width: 1641, height: 1641 },
+    ],
   },
   {
     slug: 'desi-til-chocolatey-jaggery',
@@ -155,8 +192,15 @@ const PRODUCTS: SeedProduct[] = [
     seoTitle: 'Desi Til Chocolatey Jaggery — roasted sesame jaggery, 500 g',
     seoDescription:
       'Roasted sesame folded into our classic desi jaggery. 500 g pack, MRP ₹399, now ₹249.',
-    imageSrc: '/media/products/desi-til-chocolatey-jaggery-01-51XBEBt97oL.jpg',
     imageAlt: 'Desi Til Chocolatey Jaggery — the roasted sesame 500 g jar',
+    gallery: [
+      { file: 'desi-til-chocolatey-jaggery-01.jpeg', width: 1064, height: 1600 },
+      { file: 'desi-til-chocolatey-jaggery-02.jpeg', width: 1600, height: 1600 },
+      { file: 'desi-til-chocolatey-jaggery-03.jpeg', width: 1600, height: 1600 },
+      { file: 'desi-til-chocolatey-jaggery-04.jpeg', width: 1600, height: 1600 },
+      { file: 'desi-til-chocolatey-jaggery-05.jpeg', width: 1600, height: 1600 },
+      { file: 'desi-til-chocolatey-jaggery-06.jpeg', width: 1600, height: 1600 },
+    ],
   },
   {
     slug: 'desi-elaichi-chocolatey-jaggery',
@@ -177,10 +221,15 @@ const PRODUCTS: SeedProduct[] = [
     seoTitle: 'Desi Elaichi Chocolatey Jaggery — cardamom jaggery, 500 g',
     seoDescription:
       'Cracked green cardamom folded into our classic desi jaggery. 500 g pack, MRP ₹399, now ₹249.',
-    // No client-supplied pack shot for this flavour yet; the storefront falls
-    // back to the brand banner rather than borrowing another flavour's photo.
-    imageSrc: '/media/hero-banner.png',
     imageAlt: 'Desi Elaichi Chocolatey Jaggery — the cardamom 500 g jar',
+    gallery: [
+      { file: 'desi-elaichi-chocolatey-jaggery-01.jpeg', width: 1600, height: 1600 },
+      { file: 'desi-elaichi-chocolatey-jaggery-02.jpeg', width: 1600, height: 1600 },
+      { file: 'desi-elaichi-chocolatey-jaggery-03.jpeg', width: 1600, height: 1600 },
+      { file: 'desi-elaichi-chocolatey-jaggery-04.jpeg', width: 860, height: 860 },
+      { file: 'desi-elaichi-chocolatey-jaggery-05.jpeg', width: 1600, height: 1600 },
+      { file: 'desi-elaichi-chocolatey-jaggery-06.jpeg', width: 1600, height: 1600 },
+    ],
   },
 ];
 
@@ -207,7 +256,7 @@ const CONTENT: SeedContent[] = [
     key: 'home_hero',
     eyebrow: 'Nature’s Choice Jaggery',
     title: 'A sweeter way to choose better.',
-    body: 'Three flavours of desi jaggery, made from unrefined cane juice and given a slow, chocolatey finish. 500 g jars — MRP ₹399, now ₹249.',
+    body: 'A modern take on a familiar Indian favourite — desi jaggery with a slow, chocolatey finish, combined with distinctive flavours for the modern Indian home.',
     verified: true,
     seoTitle: "Nature's Choice Jaggery — the new age of Indian jaggery",
     seoDescription:
@@ -234,7 +283,7 @@ const CONTENT: SeedContent[] = [
   {
     key: 'home_three_flavours',
     eyebrow: 'The range',
-    title: 'Three flavours, one base',
+    title: 'Three flavours. One delicious idea.',
     body: 'The same slow-set chocolatey jaggery, finished three ways — classic, roasted sesame (til) and green cardamom (elaichi).',
   },
   {
@@ -339,8 +388,8 @@ const CONTENT: SeedContent[] = [
   {
     key: 'home_recipes',
     eyebrow: 'Ways to use it',
-    title: 'Three things to make with a jar',
-    body: 'Simple recipes that use jaggery the way it is meant to be used.',
+    title: 'Ways to enjoy',
+    body: 'More ways to make every bite a little sweeter.',
   },
   {
     key: 'home_faq',
@@ -370,8 +419,8 @@ const CONTENT: SeedContent[] = [
   {
     key: 'why_natures_choice',
     eyebrow: 'Why Nature’s Choice',
-    title: 'Four decisions that explain the taste',
-    body: 'We did not set out to reinvent jaggery. We made four decisions, and you can taste all of them.',
+    title: 'Why Nature’s Choice?',
+    body: 'A modern take on a timeless Indian favourite.',
     sections: [
       {
         heading: 'Unrefined, not repolished',
@@ -605,6 +654,11 @@ async function seedProducts() {
   const ids: Record<string, string> = {};
 
   for (const p of PRODUCTS) {
+    // Local photo set: lead shot + gallery. Cloudinary still wins
+    // whenever it is configured, because `OptimizedImage` builds
+    // the delivery URL for genuine Cloudinary public ids.
+    const images = productImages(p.imageAlt, p.gallery);
+
     const doc = await Product.findOneAndUpdate(
       { slug: p.slug },
       {
@@ -620,10 +674,8 @@ async function seedProducts() {
           seoDescription: p.seoDescription,
           isActive: true,
           isVerified: true,
-          // Local pack-shot. Cloudinary still wins whenever it is configured,
-// because `OptimizedImage` prefers a Cloudinary URL when present.
-          images: [localMedia(p.imageSrc, p.imageAlt)],
-          ogImage: localMedia(p.imageSrc, p.imageAlt),
+          images,
+          ogImage: images[0],
         },
         $setOnInsert: {
           ingredients: [],
