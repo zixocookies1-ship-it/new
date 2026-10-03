@@ -50,9 +50,9 @@ export function StorySection({
       <div className="nc-container">
         <div className="mx-auto max-w-3xl">
           <Reveal>
-            <h2 id="story-heading" className="nc-h2">
+            <h1 id="story-heading" className="nc-h2">
               Our story
-            </h2>
+            </h1>
           </Reveal>
           <Reveal delay={60}>
             <p className="nc-lede mt-4">

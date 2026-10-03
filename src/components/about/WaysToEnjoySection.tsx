@@ -6,15 +6,15 @@ import Link from 'next/link';
 import { OptimizedImage } from '@/components/media/OptimizedImage';
 import { Reveal } from '@/components/ui/Reveal';
 import type { AboutRecipe } from './types';
-import type { ContentDoc } from '@/lib/models/Content';
 
 /**
  * About page — Ways to enjoy.
  *
- * Recipe cards render real recipes from the store. "View
- * recipe" opens the full recipe in a modal on this same
- * page — there is no separate recipes route. Below the
- * cards, a few no-fuss serving ideas round out the section.
+ * Recipe cards render real recipes from the store, with no
+ * section heading above them. "View recipe" opens the full
+ * recipe in a modal on this same page — there is no separate
+ * recipes route. Below the cards, a few no-fuss serving ideas
+ * round out the section.
  */
 
 /** Serving ideas with no full recipe behind them — ideas only. */
@@ -32,39 +32,17 @@ function totalMinutes(recipe: AboutRecipe): number {
   return (recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0);
 }
 
-export function WaysToEnjoySection({
-  recipes,
-  content,
-}: {
-  recipes: AboutRecipe[];
-  content: ContentDoc | null;
-}) {
+export function WaysToEnjoySection({ recipes }: { recipes: AboutRecipe[] }) {
   const [openRecipe, setOpenRecipe] = useState<AboutRecipe | null>(null);
-
-  const title = content?.title?.trim() || 'Ways to enjoy';
-  const description =
-    content?.body?.trim() ||
-    'More ways to make every bite a little sweeter.';
 
   return (
     <section
       className="bg-cream-100 py-14 sm:py-20"
-      aria-labelledby="enjoy-heading"
+      aria-label="Ways to enjoy"
     >
       <div className="nc-container">
-        <div className="mx-auto max-w-3xl text-center">
-          <Reveal>
-            <h2 id="enjoy-heading" className="nc-h2">
-              {title}
-            </h2>
-          </Reveal>
-          <Reveal delay={60}>
-            <p className="nc-lede mt-4">{description}</p>
-          </Reveal>
-        </div>
-
         {recipes.length > 0 ? (
-          <div className="mt-12 grid gap-5 sm:mt-14 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {recipes.map((recipe, i) => (
               <Reveal key={recipe.id} delay={i * 70} className="h-full">
                 <article className="nc-card group flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-card-hover">
@@ -125,7 +103,7 @@ export function WaysToEnjoySection({
             ))}
           </div>
         ) : (
-          <Reveal className="mt-12">
+          <Reveal>
             <div className="mx-auto max-w-xl rounded-card border border-dashed border-cream-400 bg-white/70 px-6 py-10 text-center">
               <h3 className="font-display text-lg text-jaggery-500">
                 Recipes are on the way

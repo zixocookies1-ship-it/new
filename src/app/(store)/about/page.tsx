@@ -12,10 +12,8 @@ import {
 } from '@/lib/models/BusinessSettings';
 import type { RecipeDoc } from '@/lib/models/Recipe';
 import type { ProductVM } from '@/lib/catalog';
-import type { ContentDoc } from '@/lib/models/Content';
 import type { AboutRecipe } from '@/components/about/types';
 
-import { AboutHero } from '@/components/about/AboutHero';
 import { StorySection } from '@/components/about/StorySection';
 import { WhySection } from '@/components/about/WhySection';
 import { FarmToJarSection } from '@/components/about/FarmToJarSection';
@@ -111,12 +109,10 @@ function toAboutRecipes(
 export default async function AboutPage() {
   const [content, productsResult, recipes, settings] = await Promise.all([
     safeContent([
-      'home_hero',
       'our_story',
       'why_natures_choice',
       'home_three_flavours',
       'home_process',
-      'home_recipes',
     ]),
     getStorefrontProducts().catch(() => null),
     getActiveRecipes(6).catch(() => []),
@@ -130,8 +126,6 @@ export default async function AboutPage() {
 
   return (
     <div>
-      <AboutHero content={content.home_hero ?? null} />
-
       <StorySection
         content={content.our_story ?? null}
         products={products}
@@ -149,10 +143,7 @@ export default async function AboutPage() {
         content={content.home_three_flavours ?? null}
       />
 
-      <WaysToEnjoySection
-        recipes={aboutRecipes}
-        content={content.home_recipes ?? null}
-      />
+      <WaysToEnjoySection recipes={aboutRecipes} />
 
       <FounderSection content={content.our_story ?? null} />
 
