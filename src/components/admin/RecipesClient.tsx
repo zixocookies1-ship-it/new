@@ -145,7 +145,8 @@ export function RecipesClient() {
                 <tr key={r.id}>
                   <Td>
                     <span className="block font-semibold text-ink">{r.title}</span>
-                    <span className="block font-mono text-2xs text-ink-faint">/recipes/{r.slug}</span>
+                    {/* Shown on the homepage "Ways to enjoy it" section. */}
+                    <span className="block text-2xs text-ink-faint">Homepage section</span>
                     <span className="mt-0.5 block max-w-sm text-xs text-ink-muted">{r.excerpt}</span>
                   </Td>
                   <Td>

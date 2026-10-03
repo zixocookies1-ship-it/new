@@ -5,7 +5,7 @@ import './admin.css';
  * Admin document chrome.
  *
  * The admin panel is completely separate from the storefront: no header, no
- * footer, no cart drawer, no analytics, and it must never be indexed. The
+ * footer, no cart drawer, and it must never be indexed. The
  * route-level auth guard lives in `src/app/admin/(panel)/layout.tsx`.
  */
 export const metadata: Metadata = {

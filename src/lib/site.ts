@@ -11,7 +11,7 @@ export const BRAND = {
   /** Used in <title> templates. */
   titleTemplate: '%s | Nature’s Choice Jaggery',
   defaultDescription:
-    'Pure jaggery with a chocolatey twist. Nature’s Choice makes modern Indian jaggery in two flavours — classic and roasted sesame (til). Secure payments, pan-India delivery.',
+    'Pure jaggery with a chocolatey twist. Nature’s Choice makes modern Indian jaggery in three flavours — classic, roasted sesame (til) and cardamom (elaichi). 500 g at ₹249. Secure payments, pan-India delivery.',
   defaultKeywords: [
     'chocolatey jaggery',
     'jaggery chocolate',
@@ -19,6 +19,8 @@ export const BRAND = {
     'jaggery India',
     'til jaggery',
     'sesame jaggery',
+    'elaichi jaggery',
+    'cardamom jaggery',
     'Nature’s Choice Jaggery',
   ],
   locale: 'en_IN',
@@ -32,24 +34,23 @@ export interface NavItem {
 }
 
 export const PRIMARY_NAV: NavItem[] = [
+  { label: 'Home', href: '/' },
   { label: 'Shop', href: '/shop' },
-  { label: 'Our Story', href: '/our-story' },
-  { label: 'Why Nature’s Choice', href: '/why-natures-choice' },
-  { label: 'Recipes', href: '/recipes' },
+  { label: 'About', href: '/our-story' },
   { label: 'Contact', href: '/contact' },
 ];
 
 export const FOOTER_NAV = {
   shop: [
     { label: 'All Products', href: '/shop' },
-    { label: 'Pair Bundle', href: '/shop#pair-bundle' },
-    { label: 'Track Order', href: '/track-order' },
+    { label: 'Desi Chocolatey', href: '/shop?f=classic' },
+    { label: 'Desi Til Chocolatey', href: '/shop?f=til' },
+    { label: 'Desi Elaichi Chocolatey', href: '/shop?f=elaichi' },
   ],
-  learn: [
-    { label: 'Our Story', href: '/our-story' },
-    { label: 'Why Nature’s Choice', href: '/why-natures-choice' },
-    { label: 'Recipes', href: '/recipes' },
-    { label: 'FAQ', href: '/faq' },
+  company: [
+    { label: 'Home', href: '/' },
+    { label: 'About Us', href: '/our-story' },
+    { label: 'Contact', href: '/contact' },
   ],
   policies: [],
 } as const;
@@ -58,16 +59,7 @@ export const ALL_ROUTES = {
   home: '/',
   shop: '/shop',
   ourStory: '/our-story',
-  why: '/why-natures-choice',
-  recipes: '/recipes',
   contact: '/contact',
-  faq: '/faq',
-  trackOrder: '/track-order',
   cart: '/cart',
   checkout: '/checkout',
-  shippingPolicy: '/shipping-policy',
-  cancellationPolicy: '/cancellation-refund-return',
-  privacyPolicy: '/privacy-policy',
-  terms: '/terms',
-  cookiePolicy: '/cookie-policy',
 } as const;

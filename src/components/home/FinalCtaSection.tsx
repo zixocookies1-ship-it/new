@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Reveal } from '@/components/ui/Reveal';
 import { ButtonLink } from '@/components/ui/ButtonLink';
+import { ALL_ROUTES } from '@/lib/site';
 import type { ContentDoc } from '@/lib/models/Content';
 import type { BusinessSettingsDoc } from '@/lib/models/BusinessSettings';
 
@@ -49,10 +50,10 @@ export function FinalCtaSection({
                   Shop the range
                 </ButtonLink>
                 <Link
-                  href="/track-order"
+                  href={ALL_ROUTES.contact}
                   className="inline-flex min-h-[52px] items-center justify-center rounded-full border border-cream-50/30 px-8 text-[0.9375rem] font-semibold text-cream-50 transition-colors hover:border-cream-50/70 hover:bg-cream-50/10"
                 >
-                  Track an order
+                  Talk to us
                 </Link>
               </div>
 

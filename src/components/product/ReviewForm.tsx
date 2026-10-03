@@ -4,7 +4,6 @@ import { useState } from 'react';
 
 import { TextInput, Textarea, Honeypot } from '@/components/ui/Field';
 import { Alert } from '@/components/ui/StateBlocks';
-import { trackEvent } from '@/lib/analytics';
 
 /**
  * Review form.
@@ -64,7 +63,6 @@ export function ReviewForm({ productId, productName }: { productId: string; prod
         return;
       }
 
-      trackEvent({ name: 'share', content_type: 'review', item_id: productId, method: 'form' });
       form.reset();
       setStatus({
         kind: 'done',

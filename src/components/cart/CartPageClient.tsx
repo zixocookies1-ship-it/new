@@ -5,7 +5,6 @@ import { useState, type FormEvent } from 'react';
 
 import { useCart } from './CartProvider';
 import { formatINR } from '@/lib/money';
-import { trackEvent } from '@/lib/analytics';
 import { ALL_ROUTES } from '@/lib/site';
 import { OptimizedImage, ImageFallback } from '@/components/media/OptimizedImage';
 import { PriceCompact } from '@/components/ui/Price';
@@ -188,19 +187,6 @@ export function CartPageClient() {
                     <button
                       type="button"
                       onClick={() => {
-                        trackEvent({
-                          name: 'remove_from_cart',
-                          items: [
-                            {
-                              item_id: item.variantId,
-                              item_name: item.name,
-                              price: item.unitPricePaise / 100,
-                              quantity: item.qty,
-                            },
-                          ],
-                          value: (item.unitPricePaise * item.qty) / 100,
-                          currency: 'INR',
-                        });
                         removeItem(item.key);
                       }}
                       className="text-sm font-medium text-ink-muted underline decoration-cream-400 underline-offset-4 transition-colors hover:text-[#8F3333]"

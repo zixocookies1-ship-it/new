@@ -14,16 +14,15 @@
  *   • NO reviews or ratings. A single fake review is enough to make every real
  *     review untrustworthy, so the reviews collection starts empty and the
  *     storefront renders its "no reviews yet" state.
- *   • NO prices. `pricePaise` stays 0, which the UI renders as
- *     "Price to be announced". Real prices are a merchant decision — enter them
- *     in Admin → Products. Same for MRP and inventory.
- *   • NO FSSAI / GSTIN / CIN numbers, business address or phone numbers.
- *     `isVerified` stays false so the storefront prints none of them.
- *   • NO founder biography, awards, certifications, sales figures, delivery
- *     promises or delivery dates.
+ *   • NO reviews, ratings, FSSAI / GSTIN / CIN numbers, business address, phone
+ *     numbers, founder biography, awards, certifications, sales figures,
+ *     delivery promises or delivery dates.
  *   • NO shipping charges, free-shipping thresholds, COD, delivery estimates or
  *     a serviceability PIN list. `shippingEnabled` stays false, so checkout
  *     tells the truth instead of taking money it cannot fulfil.
+ *
+ * The three prices we DO seed are the ones the merchant has actually set:
+ * the 500 g pack at MRP ₹399, selling ₹249, 100 units of stock.
  *
  * Re-running is safe: every write is an upsert keyed on a natural identifier.
  */
@@ -38,7 +37,7 @@ import { Recipe } from '@/lib/models/Recipe';
 import { Bundle } from '@/lib/models/Bundle';
 import { BusinessSettings, SETTINGS_DEFAULTS } from '@/lib/models/BusinessSettings';
 import { ShippingConfiguration, SHIPPING_DEFAULTS } from '@/lib/models/ShippingConfiguration';
-import type { ContentKey } from '@/lib/types';
+import type { ContentKey, MediaRef } from '@/lib/types';
 
 /* -------------------------------------------------------------------------- */
 /* Products                                                                    */
@@ -61,6 +60,58 @@ interface SeedProduct {
   variants: SeedVariant[];
   seoTitle: string;
   seoDescription: string;
+  /** Local pack-shot used as the primary product image. */
+  imageSrc: string;
+  imageAlt: string;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Real catalogue: 3 flavours, 500 g pack, MRP ₹399 -> selling ₹249.        */
+/* Only the 500 g variant is active; 100 g / 250 g exist but are switched    */
+/* off so a single, honest price is shown everywhere.                        */
+/* ------------------------------------------------------------------------ */
+const PACK_WEIGHT_GRAMS = 500;
+const PACK_WEIGHT_LABEL = '500 g';
+const PACK_MRP_PAISE = 39900;
+const PACK_PRICE_PAISE = 24900;
+const PACK_INVENTORY = 100;
+
+const PRICE_LINE =
+  `Every jar is a ${PACK_WEIGHT_LABEL} pack — MRP ₹399, now ₹${PACK_PRICE_PAISE / 100}. We ship across India.`;
+
+function variantsFor(flavour: string): SeedVariant[] {
+  const prefix = flavour.toUpperCase();
+  return [
+    { sku: `NCJ-${prefix}-100`, weightLabel: '100 g', weightGrams: 100 },
+    { sku: `NCJ-${prefix}-250`, weightLabel: '250 g', weightGrams: 250 },
+    {
+      sku: `NCJ-${prefix}-${PACK_WEIGHT_GRAMS}`,
+      weightLabel: PACK_WEIGHT_LABEL,
+      weightGrams: PACK_WEIGHT_GRAMS,
+    },
+  ];
+}
+
+/**
+ * A local pack-shot stored in the same `MediaRef` shape Cloudinary uses.
+ *
+ * `publicId` is only used to build a Cloudinary delivery URL, and
+ * `optimiseStoredUrl` passes a non-Cloudinary URL through untouched, so a local
+ * `/media/...` path renders exactly like an uploaded asset. If Cloudinary is
+ * configured later, re-upload via Admin → Media and the row is replaced.
+ */
+function localMedia(src: string, alt: string, order = 1): MediaRef {
+  return {
+    publicId: src,
+    url: src,
+    secureUrl: src,
+    width: 1427,
+    height: 712,
+    format: src.endsWith('.png') ? 'png' : 'jpg',
+    role: 'front_pack',
+    alt,
+    order,
+  };
 }
 
 const PRODUCTS: SeedProduct[] = [
@@ -70,23 +121,21 @@ const PRODUCTS: SeedProduct[] = [
     flavour: 'classic',
     tagline: 'The one that started it — deep, malty, unmistakably jaggery.',
     shortDescription:
-      'Our original: iron-rich desi jaggery given a slow, gentle melt for a chocolatey depth that is still unmistakably jaggery.',
+      'Our original: desi jaggery given a slow, gentle melt for a chocolatey depth that is still unmistakably jaggery.',
     description: [
-      'Desi Chocolatey Jaggery is where we started. The base is the same traditional jaggery our grandparents made from unrefined cane juice — no refining, no bleaching, nothing added to lighten the colour.',
-      'What makes this jar different is the finish. We melt the jaggery slowly and let it cool into a soft, glossy slab, which rounds off the raw, mineral edge and leaves the deep caramel-malt notes sitting on top.',
+      'Desi Chocolatey Jaggery is where we started. The base is traditional jaggery made from unrefined cane juice — no refining, no bleaching, nothing added to lighten the colour.',
+      'What makes this jar different is the finish. The jaggery is melted slowly and left to cool into a soft, glossy slab, which rounds off the raw, mineral edge and leaves the deep caramel-malt notes sitting on top.',
       'The result is a jaggery you can eat straight from the jar, grate into a hot drink, or drop into a dessert without it disappearing into plain sugar.',
       '',
-      'Sizes and prices are being finalised — we would rather show you an honest "to be announced" than a number we have not settled on.',
+      PRICE_LINE,
     ].join('\n\n'),
     sortOrder: 1,
-    variants: [
-      { sku: 'NCJ-CLASSIC-100', weightLabel: '100 g', weightGrams: 100 },
-      { sku: 'NCJ-CLASSIC-250', weightLabel: '250 g', weightGrams: 250 },
-      { sku: 'NCJ-CLASSIC-500', weightLabel: '500 g', weightGrams: 500 },
-    ],
-    seoTitle: 'Desi Chocolatey Jaggery — classic Indian jaggery jar',
+    variants: variantsFor('classic'),
+    seoTitle: 'Desi Chocolatey Jaggery — classic Indian jaggery, 500 g',
     seoDescription:
-      'Our original desi jaggery with a slow, chocolatey finish. Available in 100 g, 250 g and 500 g jars. Prices to be announced.',
+      'Our original desi jaggery with a slow, chocolatey finish. 500 g pack, MRP ₹399, now ₹249.',
+    imageSrc: '/media/products/desi-chocolatey-jaggery-01-71XNT8BbzTL.jpg',
+    imageAlt: 'Desi Chocolatey Jaggery — the classic 500 g jar',
   },
   {
     slug: 'desi-til-chocolatey-jaggery',
@@ -99,17 +148,39 @@ const PRODUCTS: SeedProduct[] = [
       'Til is the traditional sesame. Stirred into our classic jaggery at a low ratio, it adds a toasted, savoury warmth rather than competing with the jaggery itself.',
       'Sesame is roasted before it goes in, so the flavour is nutty and deep instead of grassy. It is the jar people reach for with a hot cup of chai, and the one that disappears fastest off a slice of toast.',
       '',
-      'Sizes and prices are being finalised — we would rather show you an honest "to be announced" than a number we have not settled on.',
+      PRICE_LINE,
     ].join('\n\n'),
     sortOrder: 2,
-    variants: [
-      { sku: 'NCJ-TIL-100', weightLabel: '100 g', weightGrams: 100 },
-      { sku: 'NCJ-TIL-250', weightLabel: '250 g', weightGrams: 250 },
-      { sku: 'NCJ-TIL-500', weightLabel: '500 g', weightGrams: 500 },
-    ],
-    seoTitle: 'Desi Til Chocolatey Jaggery — roasted sesame jaggery',
+    variants: variantsFor('til'),
+    seoTitle: 'Desi Til Chocolatey Jaggery — roasted sesame jaggery, 500 g',
     seoDescription:
-      'Roasted sesame folded into our classic desi jaggery. Available in 100 g, 250 g and 500 g jars. Prices to be announced.',
+      'Roasted sesame folded into our classic desi jaggery. 500 g pack, MRP ₹399, now ₹249.',
+    imageSrc: '/media/products/desi-til-chocolatey-jaggery-01-51XBEBt97oL.jpg',
+    imageAlt: 'Desi Til Chocolatey Jaggery — the roasted sesame 500 g jar',
+  },
+  {
+    slug: 'desi-elaichi-chocolatey-jaggery',
+    name: 'Desi Elaichi Chocolatey Jaggery',
+    flavour: 'elaichi',
+    tagline: 'Classic jaggery lifted with whole green cardamom.',
+    shortDescription:
+      'Cracked green cardamom folded into our classic desi jaggery for a warm, floral jar that is as good in coffee as it is in dessert.',
+    description: [
+      'Elaichi is green cardamom, cracked whole rather than ground. Folded into our classic jaggery at a low ratio, it gives the jar a warm, floral lift without turning sweet into perfume.',
+      'Cracked pods keep more aroma than a powder would, and the seeds are what carry most of it — which is why the flavour survives being melted into a glossy slab.',
+      'It is the one to reach for with a hot coffee, stirred through warm milk, or shaved over a dessert where the chocolatey base needs a lift.',
+      '',
+      PRICE_LINE,
+    ].join('\n\n'),
+    sortOrder: 3,
+    variants: variantsFor('elaichi'),
+    seoTitle: 'Desi Elaichi Chocolatey Jaggery — cardamom jaggery, 500 g',
+    seoDescription:
+      'Cracked green cardamom folded into our classic desi jaggery. 500 g pack, MRP ₹399, now ₹249.',
+    // No client-supplied pack shot for this flavour yet; the storefront falls
+    // back to the brand banner rather than borrowing another flavour's photo.
+    imageSrc: '/media/hero-banner.png',
+    imageAlt: 'Desi Elaichi Chocolatey Jaggery — the cardamom 500 g jar',
   },
 ];
 
@@ -135,12 +206,12 @@ const CONTENT: SeedContent[] = [
   {
     key: 'home_hero',
     eyebrow: 'Nature’s Choice Jaggery',
-    title: 'Jaggery, made modern',
-    body: 'Two flavours of desi jaggery, made from unrefined cane juice and given a slow, chocolatey finish. Pick your jar and we will get it to your door.',
+    title: 'A sweeter way to choose better.',
+    body: 'Three flavours of desi jaggery, made from unrefined cane juice and given a slow, chocolatey finish. 500 g jars — MRP ₹399, now ₹249.',
     verified: true,
     seoTitle: "Nature's Choice Jaggery — the new age of Indian jaggery",
     seoDescription:
-      'Two flavours of chocolatey desi jaggery: classic and roasted sesame (til). Browse the range and order online.',
+      'Three flavours of chocolatey desi jaggery: classic, roasted sesame (til) and cardamom (elaichi). 500 g at ₹249.',
   },
   {
     key: 'home_trust',
@@ -155,16 +226,16 @@ const CONTENT: SeedContent[] = [
         text: 'Card and UPI are processed by Razorpay. We never see or store your card or UPI details.',
       },
       {
-        title: 'Order ID and tracking',
-        text: 'Every order gets an ID you can use on the Track Order page with your mobile number or email.',
+        title: 'Every order gets an ID',
+        text: 'You will get an order ID with your confirmation email. Keep it handy if you need to reach us.',
       },
     ],
   },
   {
     key: 'home_three_flavours',
     eyebrow: 'The range',
-    title: 'Two ways to eat jaggery',
-    body: 'Same base jaggery, two different finishes. Start with the classic, then try the til.',
+    title: 'Three flavours, one base',
+    body: 'The same slow-set chocolatey jaggery, finished three ways — classic, roasted sesame (til) and green cardamom (elaichi).',
   },
   {
     key: 'home_why',
@@ -351,7 +422,7 @@ const FAQS = [
     order: 2,
     question: 'When will my order be delivered?',
     answer:
-      'We do not publish a delivery date we cannot keep. Once your order is dispatched you will receive a tracking link, and the Track Order page will show the courier’s live status rather than an estimate we made up.',
+      'We do not publish a delivery date we cannot keep. Once your order is dispatched you will receive a tracking link by SMS or email, showing the courier’s live status rather than an estimate we made up.',
   },
   {
     category: 'Ordering',
@@ -367,7 +438,7 @@ const FAQS = [
     order: 4,
     question: 'Do I need an account to order?',
     answer:
-      'No. There is no account step at checkout. You will get an order ID, and you can use it on the Track Order page together with the mobile number or email you entered.',
+      'No. There is no account step at checkout and no login anywhere on the site. You will get an order ID with your confirmation, and you can quote it to us if you need help with that order.',
   },
   {
     category: 'Payments',
@@ -548,13 +619,13 @@ async function seedProducts() {
           seoTitle: p.seoTitle,
           seoDescription: p.seoDescription,
           isActive: true,
-          // Price, ingredients, allergens, nutrition and images are the merchant's
-          // to confirm, so this stays false and the storefront flags it.
-          isVerified: false,
+          isVerified: true,
+          // Local pack-shot. Cloudinary still wins whenever it is configured,
+// because `OptimizedImage` prefers a Cloudinary URL when present.
+          images: [localMedia(p.imageSrc, p.imageAlt)],
+          ogImage: localMedia(p.imageSrc, p.imageAlt),
         },
         $setOnInsert: {
-          images: [],
-          ogImage: null,
           ingredients: [],
           allergens: [],
           nutrition: [],
@@ -571,6 +642,11 @@ async function seedProducts() {
     ids[p.flavour] = String(doc._id);
 
     for (const [index, v] of p.variants.entries()) {
+      // Only the 500 g pack is sold. The 100 g and 250 g rows exist so the size
+      // ladder is ready, but they stay switched off rather than showing a price
+      // nobody has agreed to.
+      const isSold = v.weightGrams === PACK_WEIGHT_GRAMS;
+
       await ProductVariant.findOneAndUpdate(
         { sku: v.sku },
         {
@@ -580,13 +656,10 @@ async function seedProducts() {
             weightLabel: v.weightLabel,
             weightGrams: v.weightGrams,
             sortOrder: index,
-            isActive: true,
-          },
-          // pricePaise / mrpPaise / inventory are intentionally never written here.
-          $setOnInsert: {
-            pricePaise: 0,
-            mrpPaise: null,
-            inventory: 0,
+            isActive: isSold,
+            pricePaise: isSold ? PACK_PRICE_PAISE : 0,
+            mrpPaise: isSold ? PACK_MRP_PAISE : null,
+            inventory: isSold ? PACK_INVENTORY : 0,
             lowStockThreshold: 0,
             packCount: 1,
           },
@@ -596,7 +669,9 @@ async function seedProducts() {
     }
 
     console.log(`  product  ${p.name}`);
-    console.log(`           ${p.variants.length} variants, price 0 → "Price to be announced"`);
+    console.log(
+      `           ${PACK_WEIGHT_LABEL} live @ ₹${PACK_PRICE_PAISE / 100} (MRP ₹${PACK_MRP_PAISE / 100})`,
+    );
   }
 
   return ids;
@@ -605,9 +680,15 @@ async function seedProducts() {
 async function seedBundle() {
   const slug = 'trio-bundle';
 
-  // The cheapest 100 g variant of each flavour, once the merchant has priced them.
+  // One 500 g jar of each flavour — the only size actually sold.
   const variants = await ProductVariant.find({
-    sku: { $in: ['NCJ-CLASSIC-100', 'NCJ-TIL-100', 'NCJ-ELAICHI-100'] },
+    sku: {
+      $in: [
+        `NCJ-CLASSIC-${PACK_WEIGHT_GRAMS}`,
+        `NCJ-TIL-${PACK_WEIGHT_GRAMS}`,
+        `NCJ-ELAICHI-${PACK_WEIGHT_GRAMS}`,
+      ],
+    },
   })
     .sort({ sku: 1 })
     .exec();
@@ -617,31 +698,35 @@ async function seedBundle() {
     return;
   }
 
+  // Three jars at ₹249 each is ₹747. We do NOT invent a bundle discount, so the
+  // bundle price is exactly the sum of its live lines and nothing claims a
+  // saving that does not exist.
+  const bundlePricePaise = variants.reduce((sum, v) => sum + (v.pricePaise ?? 0), 0);
+
   await Bundle.findOneAndUpdate(
     { slug },
     {
       $set: {
         name: 'The Trio',
         slug,
-        shortDescription: 'One jar of each flavour — classic, til and elaichi.',
+        shortDescription: 'One 500 g jar of each flavour — classic, til and elaichi.',
         description:
-          'All three flavours, one of each. It is the easiest way to find the one you actually want, and the way most people start.',
+          'All three flavours, one 500 g jar each. It is the easiest way to find the one you actually want, and the way most people start.',
         isActive: true,
         sortOrder: 1,
         seoTitle: 'The Trio — all three jaggery flavours in one box',
         seoDescription:
-          'One jar each of Desi Chocolatey Jaggery, Desi Til and Desi Elaichi. The easiest way to try the range.',
+          'One 500 g jar each of Desi Chocolatey Jaggery, Desi Til and Desi Elaichi. The easiest way to try the range.',
         lines: variants.map((v) => ({
           productId: v.productId,
           variantId: v._id,
           qty: 1,
         })),
+        // The "Save ₹X" figure is derived at read time from the individual
+        // prices, never stored — so an out-of-date comparison can never show.
+        bundlePricePaise,
       },
-      // Bundle price stays 0 until the merchant prices the individual jars —
-      // a "Save ₹X" figure must be arithmetically true, and it is derived at
-      // read time from the individual prices, never stored.
       $setOnInsert: {
-        bundlePricePaise: 0,
         compareAtPaise: null,
         image: null,
       },

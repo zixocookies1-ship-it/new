@@ -4,7 +4,6 @@ import { useState } from 'react';
 
 import { TextInput, Textarea, Honeypot } from '@/components/ui/Field';
 import { Alert } from '@/components/ui/StateBlocks';
-import { trackEvent } from '@/lib/analytics';
 
 const SUBJECTS = [
   'General question',
@@ -68,7 +67,6 @@ export function ContactForm() {
         return;
       }
 
-      trackEvent({ name: 'sign_up', method: 'contact_form' });
       form.reset();
       setStatus({
         kind: 'done',
@@ -188,11 +186,7 @@ export function ContactForm() {
       </button>
 
       <p className="text-xs leading-relaxed text-ink-faint">
-        We use your details only to answer this message. Read our{' '}
-        <a href="/privacy-policy" className="nc-link">
-          privacy policy
-        </a>
-        .
+        We use your details only to answer this message — nothing else.
       </p>
     </form>
   );

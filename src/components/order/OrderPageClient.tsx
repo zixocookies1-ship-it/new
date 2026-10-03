@@ -15,7 +15,7 @@ import type { PublicOrderView } from '@/lib/order-view';
  * Security note: this URL is guessable (`/order/NC-XXXXXXXXXX`), so nothing about
  * an order is rendered until the requester proves they are the customer by
  * supplying the email or mobile on the order — exactly the same bar as
- * `/track-order`. After checkout we stash the contact the customer *just typed*
+ * After checkout we stash the contact the customer *just typed*
  * in `sessionStorage`, so the confirmation page opens without making them type
  * it again. That stash never leaves the browser and is not an authorisation.
  */
@@ -320,8 +320,8 @@ export function OrderPageClient({ orderId }: { orderId: string }) {
           <Link href={ALL_ROUTES.shop} className="nc-btn-primary">
             Continue shopping
           </Link>
-          <Link href={ALL_ROUTES.trackOrder} className="nc-btn-outline">
-            Track an order
+          <Link href={ALL_ROUTES.contact} className="nc-btn-outline">
+            Need help?
           </Link>
         </div>
 

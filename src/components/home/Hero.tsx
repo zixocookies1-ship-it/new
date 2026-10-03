@@ -10,11 +10,22 @@ import type { BusinessSettingsDoc } from '@/lib/models/BusinessSettings';
 import { formatINR } from '@/lib/money';
 
 /**
+ * Client-supplied hero banner. Full-bleed, intrinsic 2:1 (1427 x 712).
+ * Filename is URL-safe (no spaces) so `next/image` can resolve it directly.
+ */
+const HERO_BANNER = '/media/hero-banner.png';
+
+/**
  * Section 1 — Hero.
+ *
+ * The client-supplied banner is the hero: it is rendered edge-to-edge across
+ * the full width of the viewport at its own 2:1 ratio, so nothing is cropped or
+ * stretched. The copy and the calls to action sit above and below it rather
+ * than on top of it, which keeps the product packaging unobstructed.
  *
  * Everything on this section is either brand copy from `Content` or a live
  * database value. There are no invented badges, ratings or claims, and the
- * secondary proof line only states capabilities the server has confirmed.
+ * proof line only states capabilities the server has confirmed.
  */
 export function Hero({
   content,
@@ -27,9 +38,11 @@ export function Hero({
   capabilities: StoreCapabilities;
   featured: ProductVM | null;
 }) {
-  const title = content?.title?.trim() || settings.tagline?.trim() || 'The New Age of Indian Jaggery';
+  const title = content?.title?.trim() || 'A sweeter way to choose better.';
   const eyebrow = content?.eyebrow?.trim() || '';
-  const body = content?.body?.trim() || settings.description?.trim() || '';
+  const body =
+    content?.body?.trim() ||
+    'Pure jaggery. A chocolatey twist. Made for the modern Indian home.';
 
   // Proof points are *capability* statements, verified server-side at render time.
   const proofs: string[] = [];
@@ -53,104 +66,115 @@ export function Hero({
         aria-hidden="true"
       />
 
-      <div className="nc-container relative grid items-center gap-10 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:py-20">
-        <div>
-          {eyebrow ? (
-            <Reveal>
-              <p className="nc-eyebrow mb-4">{eyebrow}</p>
-            </Reveal>
-          ) : null}
-
-          <Reveal delay={60}>
-            <h1 id="hero-heading" className="nc-h1">
-              {title}
-            </h1>
+      {/* ---------------------------------------------------------------- */}
+      {/* Copy — centred, sits above the banner                           */}
+      {/* ---------------------------------------------------------------- */}
+      <div className="nc-container relative pt-10 pb-8 text-center sm:pt-14 sm:pb-10">
+        {eyebrow ? (
+          <Reveal>
+            <p className="nc-eyebrow mb-4">{eyebrow}</p>
           </Reveal>
+        ) : null}
 
-          <Reveal delay={120}>
+        <Reveal delay={60}>
+          <h1 id="hero-heading" className="nc-h1 mx-auto max-w-3xl text-balance">
+            {title}
+          </h1>
+        </Reveal>
+
+        <Reveal delay={120}>
+          <div className="mx-auto mt-5 max-w-xl">
             {body ? (
-              <p className="nc-lede mt-5 max-w-xl">{body}</p>
+              <p className="nc-lede">{body}</p>
             ) : (
-              <div className="mt-5">
-                <PlaceholderNote label="Hero description — being finalised by the team." />
-              </div>
+              <PlaceholderNote label="Hero description — being finalised by the team." />
             )}
-          </Reveal>
-
-          <Reveal delay={180}>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <ButtonLink href="/shop" variant="accent" className="sm:w-auto">
-                Shop all flavours
-              </ButtonLink>
-              <ButtonLink href="/why-natures-choice" variant="outline">
-                Why Nature’s Choice
-              </ButtonLink>
-            </div>
-          </Reveal>
-
-          {proofs.length > 0 ? (
-            <Reveal delay={240}>
-              <ul className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-[0.8125rem] text-ink-muted">
-                {proofs.map((p) => (
-                  <li key={p} className="inline-flex items-center gap-1.5">
-                    <svg
-                      viewBox="0 0 20 20"
-                      className="h-4 w-4 text-leaf-500"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      aria-hidden="true"
-                    >
-                      <path d="M4.5 10.5 8 14l7.5-8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    {p}
-                  </li>
-                ))}
-              </ul>
-            </Reveal>
-          ) : null}
-        </div>
-
-        <Reveal delay={140} className="relative">
-          <div className="relative mx-auto max-w-[34rem]">
-            <div className="overflow-hidden rounded-[2rem] border border-cream-300/80 bg-white shadow-card">
-              <OptimizedImage
-                media={featured?.primaryImage ?? content?.images?.[0] ?? null}
-                src="/media/products/Screenshot 2026-10-02 215529.png"
-                alt={
-                  featured?.primaryImage?.alt ||
-                  content?.images?.[0]?.alt ||
-                  `${featured?.name ?? 'Nature’s Choice'} jaggery pack`
-                }
-                aspect="4/5"
-                fit="contain"
-                sizes="(min-width: 1024px) 46vw, 92vw"
-                priority
-                maxWidth={1400}
-                background="#FFFFFF"
-              />
-            </div>
-
-            {featured && featured.pricePaise > 0 ? (
-              <div className="absolute -bottom-4 left-1/2 w-[min(92%,20rem)] -translate-x-1/2 rounded-card border border-cream-300 bg-white/95 p-4 shadow-card-hover backdrop-blur">
-                <p className="font-display text-[0.9375rem] text-jaggery-500">{featured.name}</p>
-                <div className="mt-1.5 flex items-center justify-between gap-3">
-                  <Link
-                    href={`/products/${featured.slug}`}
-                    className="text-sm font-semibold text-ginger-600 underline underline-offset-4 decoration-ginger-200 hover:decoration-ginger-500"
-                  >
-                    {featured.variants.length > 1
-                      ? `From ${formatINR(featured.pricePaise)}`
-                      : 'View details'}
-                  </Link>
-                  <span className="text-xs text-ink-muted">
-                    {featured.variants.map((v) => v.weightLabel).join(' · ')}
-                  </span>
-                </div>
-              </div>
-            ) : null}
           </div>
         </Reveal>
+
+        <Reveal delay={180}>
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <ButtonLink href="/shop" variant="accent" className="w-full sm:w-auto">
+              Shop chocolatey jaggery
+            </ButtonLink>
+            <ButtonLink href="/shop#flavours" variant="outline" className="w-full sm:w-auto">
+              Explore our flavours
+            </ButtonLink>
+          </div>
+        </Reveal>
+      </div>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Banner — full-bleed, spans the complete screen width           */}
+      {/* ---------------------------------------------------------------- */}
+      <Reveal delay={140} className="relative">
+        <div className="relative w-full bg-cream-50">
+          <OptimizedImage
+            src={HERO_BANNER}
+            alt={
+              content?.images?.[0]?.alt ||
+              `${featured?.name ?? "Nature's Choice"} chocolatey jaggery — classic, til and elaichi`
+            }
+            aspect="2/1"
+            fit="contain"
+            sizes="100vw"
+            priority
+            maxWidth={1427}
+            background="#FFFFFF"
+            className="w-full"
+          />
+        </div>
+      </Reveal>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Proof + product strip — sits below the banner                    */}
+      {/* ---------------------------------------------------------------- */}
+      <div className="nc-container relative pb-12 pt-8 sm:pb-16 sm:pt-10">
+        {proofs.length > 0 ? (
+          <Reveal delay={200}>
+            <ul className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[0.8125rem] text-ink-muted">
+              {proofs.map((p) => (
+                <li key={p} className="inline-flex items-center gap-1.5">
+                  <svg
+                    viewBox="0 0 20 20"
+                    className="h-4 w-4 text-leaf-500"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    aria-hidden="true"
+                  >
+                    <path d="M4.5 10.5 8 14l7.5-8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+        ) : null}
+
+        {featured && featured.pricePaise > 0 ? (
+          <Reveal delay={240}>
+            <div className="mx-auto mt-8 flex w-full max-w-md flex-wrap items-center justify-between gap-3 rounded-card border border-cream-300 bg-white/95 p-4 shadow-card backdrop-blur">
+              <p className="font-display text-[0.9375rem] text-jaggery-500">{featured.name}</p>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-ink-muted">
+                  {featured.variants.map((v) => v.weightLabel).join(' · ')}
+                </span>
+                <span className="text-sm font-semibold text-ginger-600">
+                  {featured.variants.length > 1
+                    ? `From ${formatINR(featured.pricePaise)}`
+                    : formatINR(featured.pricePaise)}
+                </span>
+                <Link
+                  href={`/products/${featured.slug}`}
+                  className="text-sm font-semibold text-jaggery-500 underline underline-offset-4 decoration-ginger-200 hover:decoration-ginger-500"
+                >
+                  View
+                </Link>
+              </div>
+            </div>
+          </Reveal>
+        ) : null}
       </div>
     </section>
   );

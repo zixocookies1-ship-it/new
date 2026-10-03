@@ -111,7 +111,7 @@ export function Footer({
           {/* Nav columns */}
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-5 lg:gap-6">
             <FooterColumn title="Shop" links={FOOTER_NAV.shop} />
-            <FooterColumn title="Learn" links={FOOTER_NAV.learn} />
+            <FooterColumn title="Company" links={FOOTER_NAV.company} />
             {FOOTER_NAV.policies.length > 0 && (
               <div className="col-span-2 sm:col-span-1">
                 <FooterColumn title="Policies" links={FOOTER_NAV.policies} />

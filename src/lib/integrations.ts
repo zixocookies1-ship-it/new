@@ -64,7 +64,6 @@ export interface StoreCapabilities {
   liveTracking: boolean;
   /** Images will be served from Cloudinary. */
   images: boolean;
-  analytics: { ga: boolean; meta: boolean };
 }
 
 export async function getStoreCapabilities(params: {
@@ -79,9 +78,5 @@ export async function getStoreCapabilities(params: {
     cod: params.codEnabled,
     liveTracking: isDelhiveryReady(),
     images: integrationState('cloudinary') === 'configured',
-    analytics: {
-      ga: Boolean(publicEnv.gaMeasurementId),
-      meta: Boolean(publicEnv.metaPixelId),
-    },
   };
 }

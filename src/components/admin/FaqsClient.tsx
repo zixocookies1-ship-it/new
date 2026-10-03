@@ -28,7 +28,7 @@ interface FaqsResponse {
   categories: string[];
 }
 
-/** FAQ entries shown on /faq and in the homepage accordion. */
+/** FAQ entries shown in the homepage accordion. */
 export function FaqsClient() {
   const { data, error, loading, reload } = useAdminData<FaqsResponse>('/api/admin/faqs?all=1');
   const [category, setCategory] = useState('ALL');

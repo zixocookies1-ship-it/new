@@ -48,12 +48,12 @@ const KEY_ROUTES: Record<string, string> = {
   home_faq: '/',
   home_final_cta: '/',
   our_story: '/our-story',
-  why_natures_choice: '/why-natures-choice',
-  policies_shipping: '/shipping-policy',
-  policies_cancellation_refund_return: '/cancellation-refund-return',
-  policies_privacy: '/privacy-policy',
-  policies_terms: '/terms',
-  cookie_policy: '/cookie-policy',
+  why_natures_choice: '/our-story',
+  policies_shipping: '/contact',
+  policies_cancellation_refund_return: '/contact',
+  policies_privacy: '/contact',
+  policies_terms: '/contact',
+  cookie_policy: '/contact',
   contact: '/contact',
 };
 

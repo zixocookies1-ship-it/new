@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     return buildMetadata(settings, {
       title: 'Order not found',
       description: 'That order link does not look valid.',
-      path: '/track-order',
+      path: '/contact',
       noIndex: true,
     });
   }
@@ -47,7 +47,7 @@ export default async function OrderPage({ params }: Params) {
         <Breadcrumbs
           items={[
             { label: 'Home', href: '/' },
-            { label: 'Track order', href: '/track-order' },
+            { label: 'Your order', href: `/order/${orderId}` },
             { label: orderId },
           ]}
         />

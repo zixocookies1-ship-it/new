@@ -345,9 +345,6 @@ export interface OrderDoc {
   /** Soft stock reservation bookkeeping. */
   inventoryCommitted: boolean;
 
-  /** Analytics dedupe key so `purchase` can never fire twice for one order. */
-  analyticsPurchaseSentAt: Date | null;
-
   cancelledAt: Date | null;
   cancelReason: string | null;
   deliveredAt: Date | null;
@@ -399,8 +396,6 @@ const OrderSchema = new Schema<OrderDoc>(
     clientCheckoutToken: { type: String, default: null },
 
     inventoryCommitted: { type: Boolean, default: false },
-    analyticsPurchaseSentAt: { type: Date, default: null },
-
     cancelledAt: { type: Date, default: null },
     cancelReason: { type: String, default: null, maxlength: 500 },
     deliveredAt: { type: Date, default: null },

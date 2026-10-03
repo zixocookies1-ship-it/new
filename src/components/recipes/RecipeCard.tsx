@@ -1,8 +1,15 @@
 import Link from 'next/link';
 import { OptimizedImage } from '@/components/media/OptimizedImage';
+import { ALL_ROUTES } from '@/lib/site';
 import type { RecipeDoc } from '@/lib/models/Recipe';
 
-/** Recipe teaser card. Used on the homepage, /recipes and the recipe detail page. */
+/**
+ * Recipe teaser card — used on the homepage "Ways to enjoy it" section.
+ *
+ * There is no separate recipe detail route, so nothing here pretends to be a
+ * link that goes somewhere. The closing ask points at the contact page, where a
+ * customer can actually ask for the full recipe.
+ */
 export function RecipeCard({
   recipe,
   priority = false,
@@ -21,11 +28,7 @@ export function RecipeCard({
     <article
       className={`group nc-card flex flex-col overflow-hidden transition-shadow duration-300 hover:shadow-card-hover ${className}`}
     >
-      <Link
-        href={`/recipes/${recipe.slug}`}
-        className={`block nc-product-media ${compact ? 'aspect-[16/10]' : 'aspect-[4/3]'}`}
-        aria-label={`Read the recipe: ${recipe.title}`}
-      >
+      <div className={`block nc-product-media ${compact ? 'aspect-[16/10]' : 'aspect-[4/3]'}`}>
         <OptimizedImage
           media={recipe.image}
           alt={recipe.image?.alt || recipe.title}
@@ -35,7 +38,7 @@ export function RecipeCard({
           priority={priority}
           maxWidth={compact ? 900 : 1200}
         />
-      </Link>
+      </div>
 
       <div className={`flex flex-1 flex-col gap-2 ${compact ? 'p-4' : 'p-5'}`}>
         <div className="flex flex-wrap items-center gap-2 text-2xs font-semibold uppercase tracking-eyebrow text-ginger-600">
@@ -53,9 +56,7 @@ export function RecipeCard({
             compact ? 'text-base' : 'text-lg'
           }`}
         >
-          <Link href={`/recipes/${recipe.slug}`} className="hover:text-jaggery-600">
-            {recipe.title}
-          </Link>
+          {recipe.title}
         </h3>
 
         {recipe.excerpt && !compact ? (
@@ -63,10 +64,10 @@ export function RecipeCard({
         ) : null}
 
         <Link
-          href={`/recipes/${recipe.slug}`}
+          href={ALL_ROUTES.contact}
           className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-jaggery-500"
         >
-          Read recipe
+          Ask for this recipe
           <svg
             viewBox="0 0 20 20"
             className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"

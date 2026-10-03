@@ -9,10 +9,9 @@ import { ALL_ROUTES, BRAND } from '@/lib/site';
 export default function StoreNotFound() {
   const suggestions = [
     { label: 'Shop all jaggery', href: ALL_ROUTES.shop, note: 'All three flavours in one place.' },
-    { label: 'Track an order', href: ALL_ROUTES.trackOrder, note: 'Order status and courier updates.' },
     { label: 'Our story', href: ALL_ROUTES.ourStory, note: 'Who is behind Nature’s Choice.' },
-    { label: 'Recipes', href: ALL_ROUTES.recipes, note: 'Ways to eat jaggery that are not just dessert.' },
     { label: 'Contact us', href: ALL_ROUTES.contact, note: 'A person reads every message.' },
+    { label: 'Your cart', href: ALL_ROUTES.cart, note: 'Review what you have picked.' },
   ];
 
   return (
@@ -22,9 +21,8 @@ export default function StoreNotFound() {
           <p className="nc-eyebrow">Error 404</p>
           <h1 className="nc-h1 mt-3">We could not find that page</h1>
           <p className="nc-lede mt-5">
-            The link may be old, or the page may have moved. Nothing is wrong with
-            your order — if you were checking on one, the tracking page will find it
-            straight away.
+            The link may be old, or the page may have moved. Try the shop, our story,
+            or send us a message and we will point you the right way.
           </p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">

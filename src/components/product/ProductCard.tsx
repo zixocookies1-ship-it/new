@@ -8,7 +8,6 @@ import { OptimizedImage } from '@/components/media/OptimizedImage';
 import { Price } from '@/components/ui/Price';
 import { Rating } from '@/components/ui/Rating';
 import { useCart } from '@/components/cart/CartProvider';
-import { trackEvent } from '@/lib/analytics';
 import type { ProductVM } from '@/lib/catalog';
 
 /**
@@ -55,22 +54,6 @@ export function ProductCard({
       },
       1,
     );
-    trackEvent({
-      name: 'add_to_cart',
-      items: [
-        {
-          item_id: addable.sku,
-          item_name: `${product.name} (${addable.weightLabel})`,
-          price: addable.pricePaise / 100,
-          quantity: 1,
-          item_brand: "Nature's Choice Jaggery",
-          item_category: 'jaggery',
-          item_variant: addable.weightLabel,
-        },
-      ],
-      value: addable.pricePaise / 100,
-      currency: 'INR',
-    });
     // Brief feedback; the cart drawer opening is the real confirmation.
     setTimeout(() => setAdding(false), 900);
   };
@@ -145,17 +128,25 @@ export function ProductCard({
         </div>
 
         {addable ? (
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={adding}
-            className={clsx(
-              'nc-btn nc-btn-sm nc-btn-block mt-1',
-              adding ? 'bg-leaf-600 text-white' : 'nc-btn-primary',
-            )}
-          >
-            {adding ? 'Added ✓' : 'Add to cart'}
-          </button>
+          <div className="mt-1 space-y-2">
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={adding}
+              className={clsx(
+                'nc-btn nc-btn-sm nc-btn-block',
+                adding ? 'bg-leaf-600 text-white' : 'nc-btn-primary',
+              )}
+            >
+              {adding ? 'Added ✓' : 'Add to cart'}
+            </button>
+            <Link
+              href={`/checkout?product=${product.slug}&variant=${addable.id}`}
+              className="nc-btn nc-btn-accent nc-btn-sm nc-btn-block"
+            >
+              Buy now
+            </Link>
+          </div>
         ) : (
           <Link
             href={`/products/${product.slug}`}

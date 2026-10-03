@@ -40,7 +40,7 @@ export interface ShippingConfigurationDoc {
   unserviceableMessage: string;
   /** Shown when the courier could not give a definite answer. */
   unknownPincodeMessage: string;
-  /** Shown on the shipping-policy page; empty means "not written yet". */
+  /** Optional merchant note about shipping; empty means "not written yet". */
   shippingPolicyNote: string;
 
   /* --- Charges ---------------------------------------------------------- */

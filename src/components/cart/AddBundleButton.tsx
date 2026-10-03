@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import clsx from 'clsx';
 import { useCart } from '@/components/cart/CartProvider';
-import { trackEvent } from '@/lib/analytics';
 import { formatINR } from '@/lib/money';
 
 export interface BundleCartItem {
@@ -47,12 +46,6 @@ export function AddBundleButton({
   const handle = () => {
     if (!items.length) return;
     addBundle({ bundleId, name, items }, 1);
-    trackEvent({
-      name: 'select_promotion',
-      promotion_name: name,
-      value: items.reduce((s, i) => s + i.unitPricePaise, 0) / 100,
-      currency: 'INR',
-    });
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
   };

@@ -9,7 +9,6 @@ import { formatINR } from '@/lib/money';
 import { OptimizedImage, ImageFallback } from '@/components/media/OptimizedImage';
 import { PriceCompact } from '@/components/ui/Price';
 import { Alert, EmptyState, Badge } from '@/components/ui/StateBlocks';
-import { trackEvent } from '@/lib/analytics';
 import { ALL_ROUTES } from '@/lib/site';
 
 /** Slide-over mini cart. Focus-trapped, Escape-closable, scroll-locked. */
@@ -177,19 +176,6 @@ export function CartDrawer() {
                         <button
                           type="button"
                           onClick={() => {
-                            trackEvent({
-                              name: 'remove_from_cart',
-                              items: [
-                                {
-                                  item_id: item.variantId,
-                                  item_name: item.name,
-                                  price: item.unitPricePaise / 100,
-                                  quantity: item.qty,
-                                },
-                              ],
-                              value: (item.unitPricePaise * item.qty) / 100,
-                              currency: 'INR',
-                            });
                             removeItem(item.key);
                           }}
                           className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-cream-200 hover:text-[#8F3333]"

@@ -13,7 +13,7 @@ import { toPlain } from '@/lib/plain';
  * Storefront chrome.
  *
  * Everything a customer sees lives inside this group: header, footer, cart
- * drawer and analytics. `/admin` sits outside it, so the admin panel gets its
+ * drawer. `/admin` sits outside it, so the admin panel gets its
  * own layout (see `src/app/admin/layout.tsx`).
  */
 export const metadata: Metadata = {
@@ -54,12 +54,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
 
   return (
     <CartProvider>
-      <SiteShell
-        settings={settings}
-        shipping={shipping}
-        gaId={publicEnv.gaMeasurementId}
-        pixelId={publicEnv.metaPixelId}
-      >
+      <SiteShell settings={settings} shipping={shipping}>
         {children}
       </SiteShell>
     </CartProvider>

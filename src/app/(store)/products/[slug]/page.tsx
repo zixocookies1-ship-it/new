@@ -317,13 +317,8 @@ export default async function ProductPage({ params }: Params) {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/track-order" className="nc-link">
-                    Track an existing order
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/faq" className="nc-link">
-                    Read the FAQ
+                  <Link href="/our-story" className="nc-link">
+                    Read our story
                   </Link>
                 </li>
               </ul>

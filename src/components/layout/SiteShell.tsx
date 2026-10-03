@@ -2,8 +2,6 @@ import { BrandStrip } from './BrandStrip';
 import { HeaderBar } from './HeaderBar';
 import { Footer } from './Footer';
 import { CartDrawer } from '@/components/cart/CartDrawer';
-import { Analytics } from '@/components/analytics/Analytics';
-import { ConsentBanner } from '@/components/analytics/ConsentBanner';
 import type { BusinessSettingsDoc } from '@/lib/models/BusinessSettings';
 import type { ShippingConfigurationDoc } from '@/lib/models/ShippingConfiguration';
 import { getIntegrationHealth } from '@/lib/integrations';
@@ -17,14 +15,10 @@ export function SiteShell({
   settings,
   shipping,
   children,
-  gaId,
-  pixelId,
 }: {
   settings: BusinessSettingsDoc;
   shipping: ShippingConfigurationDoc;
   children: React.ReactNode;
-  gaId: string;
-  pixelId: string;
 }) {
   const health = getIntegrationHealth();
 
@@ -46,9 +40,6 @@ export function SiteShell({
 
       <Footer settings={settings} shipping={shipping} health={health} />
       <CartDrawer />
-
-      <Analytics gaId={gaId} pixelId={pixelId} />
-      <ConsentBanner />
     </div>
   );
 }

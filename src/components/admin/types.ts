@@ -95,7 +95,6 @@ export interface OverviewResponse {
     cod: boolean;
     liveTracking: boolean;
     images: boolean;
-    analytics: { ga: boolean; meta: boolean };
   };
   integrations: IntegrationHealth[];
   setupTasks: Array<{

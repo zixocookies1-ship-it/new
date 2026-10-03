@@ -8,7 +8,6 @@ import { Rating } from '@/components/ui/Rating';
 import { Alert, Badge } from '@/components/ui/StateBlocks';
 import { PincodeChecker } from './PincodeChecker';
 import { useCart } from '@/components/cart/CartProvider';
-import { trackEvent } from '@/lib/analytics';
 import { formatINR } from '@/lib/money';
 import type { ProductVM, VariantVM } from '@/lib/catalog';
 
@@ -58,22 +57,6 @@ export function BuyBox({ product, canCheckout, shippingEnabled, className }: Buy
       },
       qty,
     );
-    trackEvent({
-      name: 'add_to_cart',
-      items: [
-        {
-          item_id: selected.sku,
-          item_name: `${product.name} (${selected.weightLabel})`,
-          price: selected.pricePaise / 100,
-          quantity: qty,
-          item_brand: "Nature's Choice Jaggery",
-          item_category: 'jaggery',
-          item_variant: selected.weightLabel,
-        },
-      ],
-      value: (selected.pricePaise * qty) / 100,
-      currency: 'INR',
-    });
     if (buyNow) return;
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1800);

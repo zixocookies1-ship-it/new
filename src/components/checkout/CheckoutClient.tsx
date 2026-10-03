@@ -12,7 +12,6 @@ import { PriceCompact } from '@/components/ui/Price';
 import { INDIAN_STATES } from '@/lib/states';
 import { formatINR } from '@/lib/money';
 import { useRazorpayScript } from '@/lib/razorpay-client';
-import { notifyPurchaseMirror, trackEvent, type Item as AnalyticsItem } from '@/lib/analytics';
 import { ALL_ROUTES } from '@/lib/site';
 
 /* -------------------------------------------------------------------------- */
@@ -147,29 +146,9 @@ export function CheckoutClient({
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
   }, []);
 
-  /* --- begin_checkout fires once per cart, not on every re-render ---------- */
-  const analyticsItems = useMemo<AnalyticsItem[]>(
-    () =>
-      items.map((i) => ({
-        item_id: i.variantId,
-        item_name: i.name,
-        price: i.unitPricePaise / 100,
-        quantity: i.qty,
-        ...(i.bundleId ? { item_list_name: 'bundle' } : {}),
-      })),
-    [items],
-  );
-
   useEffect(() => {
-    if (!hydrated || beginCheckoutFired.current || items.length === 0) return;
-    beginCheckoutFired.current = true;
-    trackEvent({
-      name: 'begin_checkout',
-      items: analyticsItems,
-      value: (quote?.subtotalPaise ?? 0) / 100,
-      currency: 'INR',
-    });
-  }, [hydrated, items.length, analyticsItems, quote?.subtotalPaise]);
+    if (!hydrated || items.length === 0) return;
+  }, [hydrated, items.length]);
 
   /* --- Re-quote when the payment method changes ---------------------------- */
   useEffect(() => {
@@ -194,7 +173,7 @@ export function CheckoutClient({
           title="There is nothing to check out"
           message="Your cart is empty. Add a jar of jaggery and come back — we will keep your place."
           action={{ label: 'Shop all products', href: ALL_ROUTES.shop }}
-          secondaryAction={{ label: 'Track an existing order', href: ALL_ROUTES.trackOrder }}
+          secondaryAction={{ label: 'Talk to us', href: ALL_ROUTES.contact }}
         />
       </div>
     );
@@ -466,20 +445,6 @@ export function CheckoutClient({
     // Stash the contact this browser just supplied so the confirmation page can
     // re-verify without asking again. It is a convenience, not an authorisation.
     rememberOrderReceipt(orderId, contactValue);
-
-    trackEvent({
-      name: 'purchase',
-      transaction_id: orderId,
-      value: valuePaise / 100,
-      currency: 'INR',
-      items: analyticsItems,
-      coupon: couponCode,
-    });
-    notifyPurchaseMirror({
-      orderId,
-      value: valuePaise / 100,
-      items: analyticsItems,
-    });
 
     router.push(`/order/${orderId}?placed=1&total=${totalPaise}`);
   }

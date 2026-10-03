@@ -7,7 +7,6 @@ import clsx from 'clsx';
 
 import { Logo } from '@/components/brand/Logo';
 import { useCart } from '@/components/cart/CartProvider';
-import { trackEvent } from '@/lib/analytics';
 import { PRIMARY_NAV, ALL_ROUTES } from '@/lib/site';
 import type { BusinessSettingsDoc } from '@/lib/models/BusinessSettings';
 import type { MediaRef } from '@/lib/types';
@@ -254,7 +253,6 @@ export function HeaderBar({ settings }: { settings: BusinessSettingsDoc }) {
 
             <ul className="space-y-0.5">
               {[
-                { label: 'Track Order', href: ALL_ROUTES.trackOrder },
                 { label: 'Your Cart', href: ALL_ROUTES.cart },
               ].map((item) => (
                 <li key={item.href}>
@@ -318,10 +316,6 @@ function SearchBox({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () => 
         const list = json.data?.results ?? [];
         setResults(list);
         setState(list.length === 0 ? 'empty' : 'idle');
-        // Reported here rather than in the API route: this is the only place
-        // the debounce has already collapsed a burst of keystrokes into one
-        // query, and the only place the consent state is known.
-        trackEvent({ name: 'search', term: q, results: list.length });
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
         setState('error');

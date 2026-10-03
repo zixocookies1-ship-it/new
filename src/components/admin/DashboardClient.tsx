@@ -202,8 +202,6 @@ export function DashboardClient() {
               { ok: capabilities.cod, label: 'Cash on delivery' },
               { ok: capabilities.liveTracking, label: 'Live courier tracking' },
               { ok: capabilities.images, label: 'Cloudinary image delivery' },
-              { ok: capabilities.analytics.ga, label: 'Google Analytics' },
-              { ok: capabilities.analytics.meta, label: 'Meta Pixel' },
             ].map((c) => (
               <li key={c.label} className="flex items-center justify-between gap-3">
                 <span className="text-ink-soft">{c.label}</span>

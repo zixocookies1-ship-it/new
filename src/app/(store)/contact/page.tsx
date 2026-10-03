@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
 import { ContactForm } from '@/components/contact/ContactForm';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
@@ -8,7 +7,6 @@ import { PlaceholderNote } from '@/components/ui/PlaceholderNote';
 
 import { safeContent } from '@/lib/catalog';
 import { getBusinessSettings, SETTINGS_DEFAULTS } from '@/lib/models/BusinessSettings';
-import { getShippingConfig, SHIPPING_DEFAULTS } from '@/lib/models/ShippingConfiguration';
 import { buildMetadata } from '@/lib/seo';
 
 export const revalidate = 300;
@@ -24,10 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContactPage() {
-  const [content, settings, shipping] = await Promise.all([
+  const [content, settings] = await Promise.all([
     safeContent(['contact']),
     getBusinessSettings().catch(() => ({ ...SETTINGS_DEFAULTS }) as never),
-    getShippingConfig().catch(() => ({ ...SHIPPING_DEFAULTS }) as never),
   ]);
 
   const doc = content.contact ?? null;
@@ -148,45 +145,6 @@ export default async function ContactPage() {
                   <Prose className="mt-3">{doc.body}</Prose>
                 </section>
               ) : null}
-
-              <section className="rounded-card border border-cream-300 bg-cream-50 p-5 sm:p-6">
-                <h2 className="font-display text-lg text-jaggery-500">Faster answers</h2>
-                <ul className="mt-3 space-y-2 text-sm">
-                  <li>
-                    <Link href="/faq" className="nc-link">
-                      Read the FAQ
-                    </Link>{' '}
-                    <span className="text-ink-muted">— the questions we are asked most.</span>
-                  </li>
-                  <li>
-                    <Link href="/track-order" className="nc-link">
-                      Track your order
-                    </Link>{' '}
-                    <span className="text-ink-muted">— with your order ID and email or mobile.</span>
-                  </li>
-                  <li>
-                    <Link href="/shipping-policy" className="nc-link">
-                      Shipping policy
-                    </Link>{' '}
-                    <span className="text-ink-muted">— including how we check PIN codes.</span>
-                  </li>
-                  <li>
-                    <Link href="/cancellation-refund-return" className="nc-link">
-                      Cancellations &amp; refunds
-                    </Link>
-                  </li>
-                </ul>
-
-                {shipping.shippingEnabled ? (
-                  <p className="mt-4 border-t border-cream-300 pt-4 text-xs leading-relaxed text-ink-muted">
-                    Ordering is live — you can also just place the order and ask us afterwards.
-                  </p>
-                ) : (
-                  <p className="mt-4 border-t border-cream-300 pt-4 text-xs leading-relaxed text-ink-muted">
-                    {shipping.shippingDisabledMessage}
-                  </p>
-                )}
-              </section>
             </div>
           </div>
         </div>

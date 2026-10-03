@@ -11,8 +11,7 @@ import type { MediaRef } from '@/lib/types';
 import type { ContentDoc } from '@/lib/models/Content';
 
 /**
- * The shared shape for every long-form, content-driven page:
- * our story, why-natures-choice, FAQ and the five policy pages.
+ * The shared shape for the long-form, content-driven About page.
  *
  * Rules enforced here rather than per page:
  *  - copy comes from MongoDB; a missing body renders a visible placeholder
@@ -181,13 +180,13 @@ export function ContentPage({
                   <ButtonLink href="/contact" variant="accent" fullWidth size="sm">
                     Contact us
                   </ButtonLink>
-                  <ButtonLink href="/faq" variant="outline" fullWidth size="sm">
-                    Read the FAQ
+                  <ButtonLink href="/shop" variant="outline" fullWidth size="sm">
+                    Browse the range
                   </ButtonLink>
                 </div>
                 <p className="mt-4 text-xs leading-relaxed text-ink-faint">
-                  Policy pages are kept as plain text on purpose — if anything here is unclear, ask
-                  us rather than assuming.
+                  This page is kept as plain text on purpose — if anything here is unclear, ask us
+                  rather than assuming.
                 </p>
               </div>
             </aside>
@@ -199,8 +198,8 @@ export function ContentPage({
               Browse the range
             </Link>{' '}
             or{' '}
-            <Link href="/track-order" className="nc-link">
-              track an order
+            <Link href="/contact" className="nc-link">
+              send us a message
             </Link>
             .
           </p>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { buildMetadata } from '@/lib/seo';
@@ -27,7 +28,7 @@ export async function generateMetadata({
   const base = {
     title: q ? `Search: ${q}` : 'Shop',
     description:
-      'Classic and roasted sesame (til) chocolatey jaggery. Choose your pack size and order online.',
+      'Classic, roasted sesame (til) and cardamom (elaichi) chocolatey jaggery. 500 g packs — MRP ₹399, now ₹249.',
     path: q ? `/shop?q=${encodeURIComponent(q)}` : '/shop',
   };
 
@@ -37,6 +38,7 @@ export async function generateMetadata({
 export default async function ShopPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
   const sp = (await searchParams) ?? {};
   const query = Array.isArray(sp.q) ? sp.q[0]?.trim() ?? '' : sp.q?.trim() ?? '';
+  const flavourParam = Array.isArray(sp.f) ? sp.f[0]?.trim() ?? '' : sp.f?.trim() ?? '';
 
   const data = await getShopData().catch(() => null);
 
@@ -51,7 +53,7 @@ export default async function ShopPage({ searchParams }: { searchParams?: Promis
             '@context': 'https://schema.org',
             '@type': 'CollectionPage',
             name: 'Shop',
-            description: 'Browse Nature’s Choice chocolatey jaggery jars.',
+            description: 'Browse Nature’s Choice chocolatey jaggery — classic, til and elaichi.',
           }),
         }}
       />
@@ -61,21 +63,28 @@ export default async function ShopPage({ searchParams }: { searchParams?: Promis
           <div className="mx-auto max-w-2xl text-center">
             <h1 className="nc-h1">Shop chocolatey jaggery</h1>
             <p className="nc-lede mt-4">
-              {query
-                ? `${products.length} product${products.length === 1 ? '' : 's'} available.`
-                : 'Pick a flavour, pick a size, and we will take it from there.'}
+              Three flavours, 500 g each. MRP ₹399 — now ₹249. Pick one and we will take it from
+              there.
             </p>
           </div>
 
           <div className="mt-8 sm:mt-10">
-            <ShopClient products={products} initialQuery={query} />
+            <ShopClient
+              products={products}
+              initialQuery={query}
+              initialFlavour={flavourParam}
+            />
           </div>
 
           {data && data.bundles.length > 0 ? (
             <div className="mt-12 rounded-card border border-cream-300 bg-white p-6 text-center shadow-card">
               <h2 className="font-display text-xl text-jaggery-500">Looking for the pair?</h2>
               <p className="nc-body mt-2 text-ink-muted">
-                The duo bundle brings both flavours together — easy to share, easier to gift. </p>
+                The duo bundle brings two flavours together — easy to share, easier to gift.
+              </p>
+              <Link href="#flavours" className="nc-btn nc-btn-primary mt-6">
+                Add a second pack
+              </Link>
             </div>
           ) : null}
         </div>

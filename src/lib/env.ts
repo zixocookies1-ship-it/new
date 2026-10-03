@@ -33,15 +33,7 @@ function bool(key: string, fallback = false): boolean {
 export const publicEnv = {
   siteUrl: (str('NEXT_PUBLIC_SITE_URL') || 'http://localhost:3000').replace(/\/+$/, ''),
   razorpayKeyId: str('NEXT_PUBLIC_RAZORPAY_KEY_ID') || str('RAZORPAY_KEY_ID'),
-  gaMeasurementId: str('NEXT_PUBLIC_GA_MEASUREMENT_ID'),
-  metaPixelId: str('NEXT_PUBLIC_META_PIXEL_ID'),
   googleSiteVerification: str('NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION'),
-  /**
-   * The Meta Conversions API access token is deliberately NOT here and must
-   * never be a `NEXT_PUBLIC_*` variable — that would publish the secret to every
-   * visitor. It is read server-side only in `/api/analytics/purchase-mirror`
-   * (META_CAPI_ACCESS_TOKEN), and the browser simply POSTs to that route.
-   */
 } as const;
 
 export const serverEnv = {

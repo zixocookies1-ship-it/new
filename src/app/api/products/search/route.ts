@@ -10,12 +10,6 @@ export const revalidate = 300;
 
 /**
  * Header search. Returns a compact, cacheable result set.
- *
- * Analytics are *not* fired here. `@/lib/analytics` is a `'use client'` module —
- * importing its `trackEvent` from a route handler yields a client reference that
- * throws the moment it is invoked on the server. The browser already reports the
- * `search` event from `HeaderBar`'s debounced `SearchBox`, which is also where
- * the analytics consent gate is actually known.
  */
 export async function GET(req: Request) {
   try {

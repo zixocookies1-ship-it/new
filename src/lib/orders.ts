@@ -282,7 +282,6 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderO
       adminNote: '',
       clientCheckoutToken: input.clientCheckoutToken,
       inventoryCommitted: false,
-      analyticsPurchaseSentAt: null,
       cancelledAt: null,
       cancelReason: null,
       deliveredAt: null,

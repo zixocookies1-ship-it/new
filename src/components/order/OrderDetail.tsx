@@ -16,7 +16,7 @@ import {
 /**
  * The customer-facing order card.
  *
- * Shared by the post-purchase page and by `/track-order` so a customer sees the
+ * Shared by the post-purchase page so a customer sees the
  * exact same information in both places. It renders whatever the database says
  * — including "we do not know yet" and courier failures — and never fills a gap
  * with an estimate.

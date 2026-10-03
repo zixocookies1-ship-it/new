@@ -5,7 +5,6 @@ import clsx from 'clsx';
 
 import { ProductGrid } from '@/components/product/ProductGrid';
 import { EmptyState } from '@/components/ui/StateBlocks';
-import { trackEvent } from '@/lib/analytics';
 import type { ProductVM } from '@/lib/catalog';
 
 const FLAVOURS: Array<{ value: string; label: string }> = [
@@ -25,33 +24,25 @@ const SORTS: Array<{ value: string; label: string }> = [
 export function ShopClient({
   products,
   initialQuery = '',
+  initialFlavour = 'all',
 }: {
   products: ProductVM[];
   initialQuery?: string;
+  initialFlavour?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
-  const [flavour, setFlavour] = useState('all');
+  const [flavour, setFlavour] = useState(
+    FLAVOURS.some((f) => f.value === initialFlavour) ? initialFlavour : 'all',
+  );
   const [sort, setSort] = useState('featured');
 
   useEffect(() => {
     setQuery(initialQuery);
   }, [initialQuery]);
 
-  // One view_item_list per filter change, not per card.
   useEffect(() => {
-    if (!products.length) return;
-    trackEvent({
-      name: 'view_item_list',
-      items: products.slice(0, 12).map((p) => ({
-        item_id: p.variants[0]?.sku ?? p.id,
-        item_name: p.name,
-        price: p.pricePaise / 100,
-        quantity: 1,
-        item_brand: "Nature's Choice Jaggery",
-        item_category: 'jaggery',
-      })),
-    });
-  }, [products]);
+    setFlavour(FLAVOURS.some((f) => f.value === initialFlavour) ? initialFlavour : 'all');
+  }, [initialFlavour]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
