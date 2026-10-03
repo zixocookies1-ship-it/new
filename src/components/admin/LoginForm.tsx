@@ -66,7 +66,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string | undefined }) {
           </span>
           <h2 className="mt-4 font-display text-2xl text-jaggery-500">Admin sign in</h2>
           <p className="mt-1.5 text-sm text-ink-muted">
-            Nature's Choice Jaggery — catalogue, orders and content.
+            Nature&apos;s Choice Jaggery — catalogue, orders and content.
           </p>
         </div>
 
