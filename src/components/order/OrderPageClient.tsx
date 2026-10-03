@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { OrderDetail } from '@/components/order/OrderDetail';
 import { TextInput, Textarea } from '@/components/ui/Field';
 import { Alert, LoadingState } from '@/components/ui/StateBlocks';
+import { formatINR } from '@/lib/money';
 import { ALL_ROUTES } from '@/lib/site';
 import type { PublicOrderView } from '@/lib/order-view';
 
@@ -70,6 +71,22 @@ export function OrderPageClient({ orderId }: { orderId: string }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [contact, setContact] = useState('');
   const [contactError, setContactError] = useState<string | undefined>();
+
+  /**
+   * Set when the customer has just come straight from a completed checkout.
+   * Used only to decide whether to show the "order confirmed" banner — the
+   * banner is never shown on the strength of the URL alone, because a
+   * `placed=1` in the query string is trivially faked by anyone.
+   */
+  const [justPlaced, setJustPlaced] = useState(false);
+
+  useEffect(() => {
+    try {
+      setJustPlaced(new URLSearchParams(window.location.search).get('placed') === '1');
+    } catch {
+      setJustPlaced(false);
+    }
+  }, []);
 
   /* Cancel ---------------------------------------------------------------- */
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -252,6 +269,9 @@ export function OrderPageClient({ orderId }: { orderId: string }) {
   /* Order                                                                  */
   /* ---------------------------------------------------------------------- */
   const order = state.order;
+  const confirmed =
+    order.payment.status === 'PAID' ||
+    (order.payment.method === 'COD' && order.status !== 'CANCELLED');
   const canCancel =
     order.status !== 'CANCELLED' &&
     order.status !== 'REFUNDED' &&
@@ -265,6 +285,47 @@ export function OrderPageClient({ orderId }: { orderId: string }) {
   return (
     <div className="nc-container py-8 sm:py-12">
       <div className="mx-auto max-w-3xl">
+        {/* The banner is gated on what the database says, not on the URL. */}
+        {justPlaced && confirmed ? (
+          <div className="mb-5 rounded-card border border-leaf-200 bg-leaf-50 p-5 sm:p-6">
+            <div className="flex gap-3">
+              <span
+                aria-hidden="true"
+                className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-leaf-500 text-white"
+              >
+                <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="m4 10.5 4 4 8-9" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <h1 className="font-display text-xl text-leaf-600">
+                  {order.payment.method === 'COD'
+                    ? 'Order placed. Thank you.'
+                    : 'Payment received. Thank you.'}
+                </h1>
+                <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+                  Order{' '}
+                  <span className="font-semibold text-ink">{order.orderId}</span> for{' '}
+                  <span className="font-semibold text-ink">
+                    {formatINR(order.totals.totalPaise)}
+                  </span>{' '}
+                  is confirmed and we are packing it.
+                  {order.shipTo.email ? (
+                    <>
+                      {' '}
+                      A confirmation has been addressed to{' '}
+                      <span className="font-semibold text-ink">{order.shipTo.email}</span>.
+                    </>
+                  ) : null}
+                </p>
+                <p className="mt-1.5 text-xs text-ink-muted">
+                  Keep this page — it is where your tracking number appears.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {cancelMessage ? (
           <Alert
             tone={cancelMessage.ok ? 'success' : 'error'}
@@ -275,7 +336,7 @@ export function OrderPageClient({ orderId }: { orderId: string }) {
           </Alert>
         ) : null}
 
-        <OrderDetail order={order} liveError={state.liveError}>
+        <OrderDetail order={order} liveError={state.liveError} contact={contact.trim() || undefined}>
           {canCancel ? (
             <div className="mt-5 border-t border-cream-200 pt-5">
               {cancelOpen ? (

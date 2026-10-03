@@ -32,7 +32,7 @@ export default async function CheckoutPage() {
         shippingEnabled={shipping?.shippingEnabled ?? false}
         shippingDisabledMessage={
           shipping?.shippingDisabledMessage ??
-          'Online ordering is being set up. Please check back shortly or use the contact page to reach us.'
+          'Online ordering is temporarily unavailable. Please try again in a moment, or contact us and we will take your order.'
         }
         supportEmail={settings.supportEmail || undefined}
         supportPhone={settings.supportPhone || undefined}

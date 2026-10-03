@@ -210,7 +210,7 @@ export const SHIPPING_DEFAULTS: Omit<
   defaultEstimatedDeliveryDaysMin: serverEnv.commerce.estimatedDeliveryDaysMin,
   defaultEstimatedDeliveryDaysMax: serverEnv.commerce.estimatedDeliveryDaysMax,
 
-  codEnabled: false,
+  codEnabled: serverEnv.commerce.codEnabled,
   codMaxOrderPaise: null,
   codHandlingPaise: 0,
 

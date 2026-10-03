@@ -551,7 +551,7 @@ export function CheckoutClient({
     // re-verify without asking again. It is a convenience, not an authorisation.
     rememberOrderReceipt(orderId, contactValue);
 
-    router.push(`/order/${orderId}?placed=1&total=${totalPaise}`);
+    router.push(`/order/${orderId}?placed=1`);
   }
 
   return (

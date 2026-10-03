@@ -1,16 +1,34 @@
-import { connectDb } from '@/lib/db';
-import { Order } from '@/lib/models/Order';
-import { getLiveTracking } from '@/lib/orders';
+import type { HydratedDocument } from 'mongoose';
+import type { OrderDoc } from '@/lib/models/Order';
+import { getLiveTracking, findOrderForCustomer } from '@/lib/orders';
 import { ok, fail, handleRouteError, noStore, rateLimited } from '@/lib/http';
 import { clientIp, hit, RATE_LIMITS } from '@/lib/rate-limit';
 import { trackOrderSchema } from '@/lib/validation';
 import { buildTrackingUrl } from '@/lib/delhivery';
+import { getShippingConfig } from '@/lib/models/ShippingConfiguration';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/**
+ * Admin-configured delivery estimate, shown only while there is no waybill to
+ * read a real date from. Returns null when estimates are switched off or the
+ * window is not configured — we never invent a date.
+ */
+async function deliveryEstimateFor(order: {
+  shipping: { waybill: string | null };
+}): Promise<{ minDays: number; maxDays: number } | null> {
+  if (order.shipping.waybill) return null;
+  const cfg = await getShippingConfig();
+  if (!cfg.showEstimatedDelivery) return null;
+  const min = cfg.defaultEstimatedDeliveryDaysMin;
+  const max = cfg.defaultEstimatedDeliveryDaysMax;
+  if (!min || !max || max < min) return null;
+  return { minDays: min, maxDays: max };
+}
+
 /** Public, non-sensitive projection of an order for the tracking page. */
-function publicOrderView(order: InstanceType<typeof Order>): Record<string, unknown> {
+async function publicOrderView(order: HydratedDocument<OrderDoc>): Promise<Record<string, unknown>> {
   const contact = (v: string | null | undefined) => {
     if (!v) return null;
     const s = String(v);
@@ -37,7 +55,21 @@ function publicOrderView(order: InstanceType<typeof Order>): Record<string, unkn
       weightLabel: i.weightLabel,
       qty: i.qty,
       imageUrl: i.imageUrl,
+      unitPricePaise: i.unitPricePaise,
+      lineTotalPaise: i.lineTotalPaise,
     })),
+    totals: {
+      subtotalPaise: order.subtotalPaise,
+      mrpTotalPaise: order.mrpTotalPaise,
+      discountPaise: order.discountPaise,
+      couponCode: order.couponCode ?? null,
+      couponDiscountPaise: order.couponDiscountPaise ?? 0,
+      shippingPaise: order.shippingPaise,
+      shippingChargedPaise: order.shippingChargedPaise,
+      taxPaise: order.taxPaise,
+      totalPaise: order.totalPaise,
+    },
+    deliveryEstimate: await deliveryEstimateFor(order),
     payment: {
       method: order.payment.method,
       status: order.payment.status,
@@ -91,8 +123,9 @@ export async function POST(req: Request) {
 
     const body = trackOrderSchema.parse(await req.json());
 
-    await connectDb();
-    const order = await Order.findOne({ orderId: body.orderId.toUpperCase() }).exec();
+    // One shared ownership check: null covers both "no such order" and
+    // "wrong contact", so this endpoint cannot be used to enumerate orders.
+    const order = await findOrderForCustomer(body.orderId, body.contact);
 
     const generic = fail(
       'We could not find an order with those details. Please check the order ID and the email or mobile used.',
@@ -101,15 +134,7 @@ export async function POST(req: Request) {
 
     if (!order) return generic;
 
-    const contact = body.contact.trim();
-    const matches =
-      (!!order.email && order.email.toLowerCase() === contact.toLowerCase()) ||
-      order.phone === contact ||
-      order.shippingAddress.phone === contact;
-
-    if (!matches) return generic;
-
-    const view = publicOrderView(order);
+    const view = await publicOrderView(order);
 
     // Enrich with live courier status when we have a waybill.
     let live: { waybill: string; status: string; delivered: boolean; events: unknown[] } | null = null;

@@ -91,6 +91,12 @@ export const serverEnv = {
     estimatedDeliveryDaysMax: num('ESTIMATED_DELIVERY_DAYS_MAX', 6),
     /** Explicitly forces online payments off even when Razorpay keys exist. */
     onlinePaymentEnabled: bool('ONLINE_PAYMENT_ENABLED', true),
+    /**
+     * Cash on delivery is a real business decision, so it stays off until an
+     * operator turns it on. Setting it is the only way to sell before Razorpay
+     * keys exist.
+     */
+    codEnabled: bool('COD_ENABLED', false),
   },
 
   featureFlags: {

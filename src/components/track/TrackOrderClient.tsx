@@ -58,7 +58,11 @@ export function TrackOrderClient() {
   if (status.kind === 'done') {
     return (
       <div className="space-y-5">
-        <OrderDetail order={status.order} liveError={status.liveError} />
+        <OrderDetail
+          order={status.order}
+          liveError={status.liveError}
+          contact={contact.trim() || undefined}
+        />
         <button
           type="button"
           onClick={() => setStatus({ kind: 'idle' })}

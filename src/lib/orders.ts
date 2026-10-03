@@ -2,6 +2,8 @@ import 'server-only';
 
 import crypto from 'node:crypto';
 
+import type { HydratedDocument } from 'mongoose';
+
 import { connectDb } from './db';
 import { Order, type OrderDoc } from './models/Order';
 import { getShippingConfig } from './models/ShippingConfiguration';
@@ -1063,6 +1065,30 @@ export async function updateOrderStatus(params: {
   return { ok: true, order, releasedStock };
 }
 
+/**
+ * The single customer-ownership check, shared by tracking, cancellation and the
+ * invoice.
+ *
+ * Returns null both when the order does not exist and when the contact does not
+ * match, so a caller cannot use this to discover which order IDs are real.
+ */
+export async function findOrderForCustomer(
+  orderId: string,
+  contact: string,
+): Promise<HydratedDocument<OrderDoc> | null> {
+  await connectDb();
+  const order = await Order.findOne({ orderId: orderId.trim().toUpperCase() }).exec();
+  if (!order) return null;
+
+  const value = contact.trim();
+  const matches =
+    (!!order.email && order.email.toLowerCase() === value.toLowerCase()) ||
+    order.phone === value ||
+    order.shippingAddress.phone === value;
+
+  return matches ? order : null;
+}
+
 /** Customer-initiated cancellation, only inside the configured window. */
 export async function customerCancelOrder(params: {
   orderId: string;
@@ -1070,14 +1096,8 @@ export async function customerCancelOrder(params: {
   reason: string;
 }): Promise<{ ok: boolean; error?: string; order?: OrderDoc }> {
   await connectDb();
-  const order = await Order.findOne({ orderId: params.orderId }).exec();
-  if (!order) return { ok: false, error: 'Order not found.' };
-
-  // Verification: the requester must supply a value we already hold.
-  const match =
-    order.email?.toLowerCase() === params.emailOrPhone.toLowerCase() ||
-    order.phone === params.emailOrPhone;
-  if (!match) return { ok: false, error: 'Order ID and contact details do not match.' };
+  const order = await findOrderForCustomer(params.orderId, params.emailOrPhone);
+  if (!order) return { ok: false, error: 'Order ID and contact details do not match.' };
 
   const { getShippingConfig } = await import('./models/ShippingConfiguration');
   const cfg = await getShippingConfig({ fresh: true });

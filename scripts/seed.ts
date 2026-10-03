@@ -15,11 +15,12 @@
  *     review untrustworthy, so the reviews collection starts empty and the
  *     storefront renders its "no reviews yet" state.
  *   • NO reviews, ratings, FSSAI / GSTIN / CIN numbers, business address, phone
- *     numbers, founder biography, awards, certifications, sales figures,
- *     delivery promises or delivery dates.
- *   • NO shipping charges, free-shipping thresholds, COD, delivery estimates or
- *     a serviceability PIN list. `shippingEnabled` stays false, so checkout
- *     tells the truth instead of taking money it cannot fulfil.
+ *     numbers, founder biography, awards, certifications, sales figures or
+ *     delivery dates. A promised delivery window we cannot keep is worse than
+ *     no promise at all, so estimates stay off until a courier confirms them.
+ *   • NO pickup address. Shipping / fulfilment details, charges, free-shipping
+ *     threshold, COD and delivery estimates come from `SHIPPING_DEFAULTS` and
+ *     `Admin → Shipping`, so nothing is invented here.
  *
  * The three prices we DO seed are the ones the merchant has actually set:
  * the 500 g pack at MRP ₹399, selling ₹249, 100 units of stock.
@@ -865,7 +866,7 @@ async function seedSingletons() {
     { $setOnInsert: SHIPPING_DEFAULTS as never },
     { upsert: true, setDefaultsOnInsert: true },
   ).exec();
-  console.log('  shipping ShippingConfiguration created (shippingEnabled: false)');
+  console.log('  shipping ShippingConfiguration created (from SHIPPING_DEFAULTS — override in Admin → Shipping)');
 }
 
 async function main() {
@@ -896,10 +897,9 @@ async function main() {
   console.log('  reviews          — the storefront shows its "no reviews yet" state');
   console.log('  prices / MRP     — 0 paise renders as "Price to be announced"');
   console.log('  inventory        — 0, so nothing can be bought before you set stock');
-  console.log('  coupons          — no invented discounts');
-  console.log('  shipping charges — 0, and shippingEnabled is false');
-  console.log('  COD / delivery   — off, no estimated dates');
-  console.log('  FSSAI / GSTIN    — blank, so nothing is printed as a real licence');
+console.log('  coupons          — no invented discounts');
+console.log('  pickup address   — blank until you fill Admin → Shipping');
+console.log('  FSSAI / GSTIN    — blank, so nothing is printed as a real licence');
 
   heading('Next steps in the admin panel');
   console.log('  1. Settings    — enter support contact details, then verify registrations');

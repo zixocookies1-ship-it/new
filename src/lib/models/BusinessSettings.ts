@@ -138,7 +138,7 @@ const BusinessSettingsSchema = new Schema<BusinessSettingsDoc>(
     gstNumber: { type: String, default: '', trim: true },
     cinNumber: { type: String, default: '', trim: true },
 
-    onlinePaymentEnabled: { type: Boolean, default: false },
+    onlinePaymentEnabled: { type: Boolean, default: serverEnv.commerce.onlinePaymentEnabled },
     razorpayDisplayName: { type: String, default: '', trim: true },
 
     currency: { type: String, default: 'INR' },

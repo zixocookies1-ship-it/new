@@ -24,13 +24,32 @@ import {
 export function OrderDetail({
   order,
   liveError,
+  contact,
   children,
 }: {
   order: PublicOrderView;
   liveError?: string | null;
+  /**
+   * The contact value the customer already proved they own. Used only to build
+   * the invoice link — the invoice route re-checks it server-side, so this is a
+   * convenience rather than the authorisation.
+   */
+  contact?: string;
   children?: ReactNode;
 }) {
   const headline = orderHeadline(order);
+
+  /**
+   * An invoice only exists for a genuinely confirmed order: money we verified,
+   * or cash on delivery which is confirmed the moment it is placed.
+   */
+  const invoiceReady =
+    order.payment.status === 'PAID' ||
+    (order.payment.method === 'COD' && order.status !== 'CANCELLED');
+  const invoiceHref =
+    invoiceReady && contact
+      ? `/api/orders/invoice/${order.orderId}?contact=${encodeURIComponent(contact)}`
+      : null;
 
   return (
     <div className="space-y-5">
@@ -91,6 +110,28 @@ export function OrderDetail({
       </div>
 
       {/* ------------------------------------------------------------------ */}
+      {/* Invoice                                                             */}
+      {/* ------------------------------------------------------------------ */}
+      {invoiceHref ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-cream-300 bg-cream-50 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink">Your tax invoice</p>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              Generated from this order — print it or save it as a PDF.
+            </p>
+          </div>
+          <a
+            href={invoiceHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="nc-btn-outline nc-btn-sm shrink-0"
+          >
+            Download invoice
+          </a>
+        </div>
+      ) : null}
+
+      {/* ------------------------------------------------------------------ */}
       {/* Courier                                                            */}
       {/* ------------------------------------------------------------------ */}
       {order.shipping.waybill ? (
@@ -123,7 +164,13 @@ export function OrderDetail({
             </Link>
           </div>
         </div>
-      ) : order.status === 'CANCELLED' || order.status === 'REFUNDED' ? null : (
+      ) : order.status === 'CANCELLED' || order.status === 'REFUNDED' ? null : order.deliveryEstimate ? (
+        <p className="px-1 text-sm text-ink-muted">
+          A tracking number appears here once the parcel has been handed to the courier.
+          Typical delivery is {order.deliveryEstimate.minDays}–
+          {order.deliveryEstimate.maxDays} days after dispatch.
+        </p>
+      ) : (
         <p className="px-1 text-sm text-ink-muted">
           A tracking number appears here once the parcel has been handed to the courier.
         </p>
@@ -168,6 +215,12 @@ export function OrderDetail({
                   {item.weightLabel}
                   {item.qty > 1 ? ` · ×${item.qty}` : ''}
                 </span>
+                <span className="mt-0.5 block text-xs text-ink-muted">
+                  {formatINR(item.unitPricePaise)} each
+                </span>
+              </span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums text-ink">
+                {formatINR(item.lineTotalPaise)}
               </span>
             </li>
           ))}
@@ -183,6 +236,57 @@ export function OrderDetail({
                   .filter(Boolean)
                   .join(', ')}
               </span>
+            </dd>
+          </div>
+        </dl>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Money — every figure comes from the persisted order                */}
+        {/* ------------------------------------------------------------------ */}
+        <dl className="mt-4 space-y-1.5 border-t border-cream-200 pt-4 text-sm">
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-ink-muted">Subtotal</dt>
+            <dd className="tabular-nums text-ink">{formatINR(order.totals.subtotalPaise)}</dd>
+          </div>
+
+          {order.totals.discountPaise > 0 ? (
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-ink-muted">Discount</dt>
+              <dd className="tabular-nums text-leaf-600">
+                −{formatINR(order.totals.discountPaise)}
+              </dd>
+            </div>
+          ) : null}
+
+          {order.totals.couponDiscountPaise > 0 && order.totals.couponCode ? (
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-ink-muted">Coupon {order.totals.couponCode}</dt>
+              <dd className="tabular-nums text-leaf-600">
+                −{formatINR(order.totals.couponDiscountPaise)}
+              </dd>
+            </div>
+          ) : null}
+
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-ink-muted">Delivery</dt>
+            <dd className="tabular-nums text-ink">
+              {order.totals.shippingChargedPaise > 0
+                ? formatINR(order.totals.shippingChargedPaise)
+                : 'Free'}
+            </dd>
+          </div>
+
+          {order.totals.taxPaise > 0 ? (
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-ink-muted">Taxes</dt>
+              <dd className="tabular-nums text-ink">{formatINR(order.totals.taxPaise)}</dd>
+            </div>
+          ) : null}
+
+          <div className="flex items-baseline justify-between gap-4 border-t border-cream-200 pt-3 text-base">
+            <dt className="font-semibold text-ink">Total</dt>
+            <dd className="font-semibold tabular-nums text-jaggery-500">
+              {formatINR(order.totals.totalPaise)}
             </dd>
           </div>
         </dl>

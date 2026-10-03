@@ -24,7 +24,27 @@ export interface PublicOrderView {
     weightLabel: string;
     qty: number;
     imageUrl: string | null;
+    unitPricePaise: number;
+    lineTotalPaise: number;
   }>;
+  /**
+   * The customer's own money breakdown, straight from the persisted order.
+   * Safe to expose because this projection is only ever returned *after* the
+   * caller has proven they are the customer with the order's email or mobile.
+   */
+  totals: {
+    subtotalPaise: number;
+    mrpTotalPaise: number;
+    discountPaise: number;
+    couponCode: string | null;
+    couponDiscountPaise: number;
+    shippingPaise: number;
+    shippingChargedPaise: number;
+    taxPaise: number;
+    totalPaise: number;
+  };
+  /** Courier-agnostic estimate shown only while there is no waybill. */
+  deliveryEstimate: { minDays: number; maxDays: number } | null;
   payment: {
     method: string;
     status: string;
