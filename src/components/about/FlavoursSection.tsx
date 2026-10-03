@@ -54,8 +54,8 @@ export function FlavoursSection({
         mrpPaise: addable.mrpPaise,
       },
       1,
-      // Stay on the About page — the button itself confirms.
-      { openDrawer: false },
+      // Stay on the About page — the button itself confirms, so no toast.
+      { openDrawer: false, silent: true },
     );
 
     setAddedId(product.id);

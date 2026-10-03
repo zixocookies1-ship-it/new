@@ -1,6 +1,7 @@
 import { Schema, model, models, type Model } from 'mongoose';
 import { MediaSchema } from './media';
 import { connectDb } from '../db';
+import { serverEnv } from '../env';
 import type { MediaRef } from '../types';
 
 export interface SocialLinks {
@@ -185,8 +186,10 @@ export const SETTINGS_DEFAULTS: Omit<BusinessSettingsDoc, '_id' | 'createdAt' | 
   gstNumber: '',
   cinNumber: '',
 
-  // Online payments stay OFF until Razorpay keys exist AND admin confirms.
-  onlinePaymentEnabled: false,
+  // Online payments are offered whenever Razorpay is actually connected. The
+  // flag is an emergency switch an admin can still flip in Admin → Settings; it
+  // is no longer something a new install has to remember to turn on.
+  onlinePaymentEnabled: serverEnv.commerce.onlinePaymentEnabled,
   razorpayDisplayName: '',
 
   currency: 'INR',
@@ -215,6 +218,33 @@ export const SETTINGS_DEFAULTS: Omit<BusinessSettingsDoc, '_id' | 'createdAt' | 
 let settingsCache: { value: BusinessSettingsDoc; at: number } | null = null;
 const CACHE_MS = 30_000;
 
+/**
+ * A settings document created by an older build had `onlinePaymentEnabled:
+ * false` and no other distinguishing edits. If that is all that changed, switch
+ * online payments on so checkout is not silently dead. Any document an admin has
+ * actually customised is left exactly as it is.
+ */
+async function upgradeLegacyPaymentFlag(
+  doc: BusinessSettingsDoc,
+): Promise<BusinessSettingsDoc> {
+  if (doc.onlinePaymentEnabled !== false) return doc;
+  if (!serverEnv.commerce.onlinePaymentEnabled) return doc;
+
+  const touched =
+    (doc.legalName ?? '') !== '' ||
+    (doc.gstNumber ?? '') !== '' ||
+    (doc.fssaiNumber ?? '') !== '' ||
+    (doc.cinNumber ?? '') !== '' ||
+    (doc.announcement ?? '') !== '' ||
+    doc.isVerified === true ||
+    (doc.notifications?.emailEnabled ?? false) === true;
+
+  if (touched) return doc;
+
+  await BusinessSettings.updateOne({ _id: doc._id }, { $set: { onlinePaymentEnabled: true } }).exec();
+  return { ...doc, onlinePaymentEnabled: true };
+}
+
 export async function getBusinessSettings(
   opts: { fresh?: boolean } = {},
 ): Promise<BusinessSettingsDoc> {
@@ -225,6 +255,8 @@ export async function getBusinessSettings(
   let doc = (await BusinessSettings.findOne({}).lean().exec()) as BusinessSettingsDoc | null;
   if (!doc) {
     doc = (await BusinessSettings.create(SETTINGS_DEFAULTS)).toObject() as BusinessSettingsDoc;
+  } else {
+    doc = await upgradeLegacyPaymentFlag(doc);
   }
   settingsCache = { value: doc, at: Date.now() };
   return doc;

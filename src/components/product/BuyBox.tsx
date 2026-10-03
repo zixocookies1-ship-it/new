@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 
@@ -9,6 +10,7 @@ import { Alert, Badge } from '@/components/ui/StateBlocks';
 import { PincodeChecker } from './PincodeChecker';
 import { useCart } from '@/components/cart/CartProvider';
 import { formatINR } from '@/lib/money';
+import { ALL_ROUTES } from '@/lib/site';
 import type { ProductVM, VariantVM } from '@/lib/catalog';
 
 interface BuyBoxProps {
@@ -22,11 +24,18 @@ interface BuyBoxProps {
 /**
  * Buy box: variant picker, quantity, PIN check, and the primary CTA.
  *
+ * Two distinct purchase paths, exactly as the storefront promises:
+ *  - "Add to cart" adds the product and leaves the customer on the page with a
+ *    small "Added to cart ✓" toast, so they can keep browsing.
+ *  - "Buy now" makes this product the checkout item and goes straight to
+ *    checkout, without touching anything already in the cart.
+ *
  * Mobile gets a sticky bar pinned to the bottom of the viewport so "Add to
  * cart" is always one thumb-tap away while reading the page.
  */
 export function BuyBox({ product, canCheckout, shippingEnabled, className }: BuyBoxProps) {
-  const { addItem } = useCart();
+  const router = useRouter();
+  const { addItem, buyNow } = useCart();
   const inStockVariants = useMemo(() => product.variants.filter((v) => v.inStock), [product.variants]);
 
   const [selectedId, setSelectedId] = useState<string>(
@@ -41,10 +50,8 @@ export function BuyBox({ product, canCheckout, shippingEnabled, className }: Buy
   const purchasable = Boolean(selected && selected.inStock && selected.pricePaise > 0);
   const maxQty = selected ? Math.max(1, Math.min(10, selected.inventory || 10)) : 10;
 
-  function add(buyNow = false) {
-    if (!selected || !purchasable) return;
-    addItem(
-      {
+  const line = selected
+    ? {
         productId: product.id,
         variantId: selected.id,
         slug: product.slug,
@@ -54,12 +61,22 @@ export function BuyBox({ product, canCheckout, shippingEnabled, className }: Buy
         imageUrl: product.primaryImage?.url ?? null,
         unitPricePaise: selected.pricePaise,
         mrpPaise: selected.mrpPaise,
-      },
-      qty,
-    );
-    if (buyNow) return;
+      }
+    : null;
+
+  /** Stay on the page; the provider's toast is the confirmation. */
+  function addToCart() {
+    if (!line || !purchasable) return;
+    addItem(line, qty);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1800);
+  }
+
+  /** Straight to checkout with just this product. The cart is left alone. */
+  function addAndCheckout() {
+    if (!line || !purchasable) return;
+    buyNow(line, qty);
+    router.push(ALL_ROUTES.checkout);
   }
 
   const ctaDisabled = !purchasable;
@@ -177,7 +194,7 @@ export function BuyBox({ product, canCheckout, shippingEnabled, className }: Buy
             <>
               <button
                 type="button"
-                onClick={() => add(false)}
+                onClick={addToCart}
                 disabled={ctaDisabled}
                 className={clsx(
                   'nc-btn-block',
@@ -188,7 +205,7 @@ export function BuyBox({ product, canCheckout, shippingEnabled, className }: Buy
               </button>
               <button
                 type="button"
-                onClick={() => add(true)}
+                onClick={addAndCheckout}
                 disabled={ctaDisabled}
                 className="nc-btn-accent nc-btn-block"
               >
@@ -242,7 +259,7 @@ export function BuyBox({ product, canCheckout, shippingEnabled, className }: Buy
           {canCheckout && purchasable ? (
             <button
               type="button"
-              onClick={() => add(false)}
+              onClick={addToCart}
               className={clsx('flex-1 nc-btn', justAdded ? 'bg-leaf-600 text-white' : 'nc-btn-primary')}
             >
               {justAdded ? 'Added ✓' : 'Add to cart'}

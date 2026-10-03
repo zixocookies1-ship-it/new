@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
-import { useCart } from '@/components/cart/CartProvider';
+import { useCart, type CartQuote } from '@/components/cart/CartProvider';
 import { rememberOrderReceipt } from '@/components/order/OrderPageClient';
 import { TextInput, Select, Textarea, RadioCard } from '@/components/ui/Field';
 import { Alert, Badge, EmptyState, LoadingState } from '@/components/ui/StateBlocks';
 import { PriceCompact } from '@/components/ui/Price';
+import { OptimizedImage, ImageFallback } from '@/components/media/OptimizedImage';
 import { INDIAN_STATES } from '@/lib/states';
 import { formatINR } from '@/lib/money';
 import { useRazorpayScript } from '@/lib/razorpay-client';
@@ -51,11 +52,19 @@ const EMPTY_ADDRESS: Address = {
 const ADDRESS_KEY = 'nc_address_v1';
 const TOKEN_KEY = 'nc_checkout_token_v1';
 
-type Phase =
-  | { kind: 'idle' }
-  | { kind: 'creating' }
-  | { kind: 'paying' }
-  | { kind: 'verifying' };
+type Phase = 'idle' | 'creating' | 'paying' | 'verifying';
+
+interface GatewayOrder {
+  razorpayOrderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  name: string;
+  email?: string;
+  contact: string;
+}
+
+type QuoteLine = CartQuote['lines'][number];
 
 /* -------------------------------------------------------------------------- */
 /* Client validation                                                           */
@@ -65,27 +74,33 @@ type Phase =
  * Mirrors the zod schema in `@/lib/validation` so the customer sees errors
  * without a round trip. The server re-validates everything regardless — this is
  * a courtesy layer, never a security boundary.
+ *
+ * Every one of these fields is required: nothing reaches payment until the
+ * complete delivery address is valid.
  */
 function validateAddress(a: Address): FieldErrors {
   const e: FieldErrors = {};
-  if (a.name.trim().length < 2) e.name = 'Enter the full name for delivery.';
-  if (a.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(a.email.trim())) {
-    e.email = 'Enter a valid email address.';
+  if (a.name.trim().length < 2) e.name = 'Please enter your full name.';
+  if (!a.email.trim()) e.email = 'Please enter your email address.';
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(a.email.trim())) {
+    e.email = 'Please enter a valid email address.';
   }
   const digits = a.phone.replace(/[\s-]/g, '');
-  if (!/^(?:\+?91)?[6-9]\d{9}$/.test(digits)) {
-    e.phone = 'Enter a valid 10-digit Indian mobile number.';
+  if (!digits) e.phone = 'Please enter a valid mobile number.';
+  else if (!/^(?:\+?91)?[6-9]\d{9}$/.test(digits)) {
+    e.phone = 'Please enter a valid 10-digit mobile number.';
   }
   if (a.alternatePhone.trim()) {
     const alt = a.alternatePhone.replace(/[\s-]/g, '');
     if (!/^(?:\+?91)?[6-9]\d{9}$/.test(alt)) {
-      e.alternatePhone = 'Enter a valid alternate mobile number.';
+      e.alternatePhone = 'Please enter a valid alternate mobile number.';
     }
   }
-  if (a.line1.trim().length < 4) e.line1 = 'Enter the house number and street.';
-  if (a.city.trim().length < 2) e.city = 'Enter the city.';
-  if (a.state.trim().length < 2) e.state = 'Choose the state.';
-  if (!/^\d{6}$/.test(a.pincode.trim())) e.pincode = 'Enter a valid 6-digit PIN code.';
+  if (a.line1.trim().length < 4) e.line1 = 'Please enter your delivery address.';
+  if (a.city.trim().length < 2) e.city = 'Please enter your city.';
+  if (!a.state.trim()) e.state = 'Please select your state.';
+  if (!a.pincode.trim()) e.pincode = 'Please enter a valid 6-digit PIN code.';
+  else if (!/^\d{6}$/.test(a.pincode.trim())) e.pincode = 'Please enter a valid 6-digit PIN code.';
   return e;
 }
 
@@ -107,13 +122,18 @@ export function CheckoutClient({
   const router = useRouter();
   const {
     items,
+    checkoutItems,
+    isBuyNow,
     couponCode,
+    applyCoupon,
+    removeCoupon,
     quote,
     quoteLoading,
     hydrated,
     paymentMethod,
     setPaymentMethod,
-    clearCart,
+    removeItem,
+    completePurchase,
     reconcile,
   } = useCart();
 
@@ -123,10 +143,24 @@ export function CheckoutClient({
   const [note, setNote] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
+  const [phase, setPhase] = useState<Phase>('idle');
+
+  /**
+   * A server-created order whose payment has not completed yet.
+   *
+   * Retrying re-opens Razorpay for this same order rather than creating another
+   * one, which is what keeps a failed payment from turning into duplicate orders
+   * or duplicate charges. `fingerprint` detects the customer changing the basket
+   * after a failure, in which case the stale order is abandoned.
+   */
+  const [pending, setPending] = useState<{ orderId: string; fingerprint: string } | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  const [couponInput, setCouponInput] = useState('');
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponMessage, setCouponMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const addressRestored = useRef(false);
-  const beginCheckoutFired = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   /* --- Address memory: a returning customer should not retype everything --- */
@@ -146,16 +180,43 @@ export function CheckoutClient({
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
   }, []);
 
-  useEffect(() => {
-    if (!hydrated || items.length === 0) return;
-  }, [hydrated, items.length]);
-
   /* --- Re-quote when the payment method changes ---------------------------- */
   useEffect(() => {
-    if (!hydrated || items.length === 0) return;
+    if (!hydrated || checkoutItems.length === 0) return;
     const t = setTimeout(() => void reconcile(), 200);
     return () => clearTimeout(t);
-  }, [paymentMethod, hydrated, items.length, reconcile]);
+  }, [paymentMethod, hydrated, checkoutItems.length, reconcile]);
+
+  const onlineAvailable = quote?.onlinePaymentAvailable ?? false;
+  const codAvailable = quote?.codAvailable ?? false;
+  const methodAvailable = onlineAvailable || codAvailable;
+  /** The chosen method must still be one the server is willing to accept. */
+  const selectedAvailable = paymentMethod === 'COD' ? codAvailable : onlineAvailable;
+  const busy = phase !== 'idle';
+
+  /* --- Order summary rows, built from the SERVER quote -------------------- */
+  const summaryRows = useMemo(
+    () => buildSummaryRows(checkoutItems, quote?.lines ?? []),
+    [checkoutItems, quote],
+  );
+
+  /**
+   * Identifies exactly what is being bought. If the basket changes after a
+   * failed payment, the fingerprint no longer matches and the stale pending
+   * order is abandoned rather than retried with the wrong contents.
+   */
+  const fingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        lines: checkoutItems.map((i) => [i.bundleId ?? `${i.productId}:${i.variantId}`, i.qty]),
+        coupon: couponCode,
+        method: paymentMethod,
+      }),
+    [checkoutItems, couponCode, paymentMethod],
+  );
+
+  const quoteBlocked =
+    !quote || !methodAvailable || !selectedAvailable || Boolean(quote.issues.length);
 
   /* --- Guard states ------------------------------------------------------ */
   if (!hydrated) {
@@ -166,23 +227,35 @@ export function CheckoutClient({
     );
   }
 
-  if (items.length === 0) {
+  if (checkoutItems.length === 0) {
     return (
       <div className="nc-container py-16">
         <EmptyState
           title="There is nothing to check out"
-          message="Your cart is empty. Add a jar of jaggery and come back — we will keep your place."
-          action={{ label: 'Shop all products', href: ALL_ROUTES.shop }}
+          message={
+            items.length > 0
+              ? 'Your cart still has items in it. Open your cart to continue.'
+              : 'Your cart is empty. Add a jar of jaggery and come back — we will keep your place.'
+          }
+          action={
+            items.length > 0
+              ? { label: 'Open cart', href: ALL_ROUTES.cart }
+              : { label: 'Shop all products', href: ALL_ROUTES.shop }
+          }
           secondaryAction={{ label: 'Talk to us', href: ALL_ROUTES.contact }}
         />
       </div>
     );
   }
 
+  /**
+   * The genuine emergency switch: an admin can pause ordering from
+   * Admin → Shipping. It is off only because the store is deliberately paused.
+   */
   if (!shippingEnabled) {
     return (
       <div className="nc-container py-16">
-        <Alert tone="warning" title="Online ordering is not switched on yet">
+        <Alert tone="warning" title="Online ordering is temporarily paused">
           <p>{shippingDisabledMessage}</p>
         </Alert>
         <div className="mt-6 flex flex-wrap gap-3">
@@ -197,19 +270,46 @@ export function CheckoutClient({
     );
   }
 
-  const onlineAvailable = quote?.onlinePaymentAvailable ?? false;
-  const codAvailable = quote?.codAvailable ?? false;
-  const methodAvailable = onlineAvailable || codAvailable;
-  const quoteBlocked = Boolean(quote?.issues?.length) || !methodAvailable;
-  const busy = phase.kind !== 'idle';
+  const subtotal = quote?.subtotalPaise ?? 0;
+  const delivery = quote?.shippingPaise ?? 0;
+  const couponDiscount = quote?.couponDiscountPaise ?? 0;
+  const total = quote?.totalPaise ?? 0;
+  const freeDelivery = delivery === 0;
+
+  /* --- Coupon ------------------------------------------------------------ */
+  async function onApplyCoupon(e: FormEvent) {
+    e.preventDefault();
+    const code = couponInput.trim();
+    if (!code) return;
+
+    setCouponBusy(true);
+    setCouponMessage(null);
+    // Server validates existence, expiry, usage limits, minimum order and the
+    // discount amount. The client never computes a discount.
+    const res = await applyCoupon(code);
+    setCouponBusy(false);
+    setCouponMessage({ ok: res.ok, text: res.message });
+    if (res.ok) {
+      setCouponInput('');
+      void reconcile();
+    }
+  }
+
+  function onRemoveCoupon() {
+    removeCoupon();
+    setCouponMessage(null);
+    setCouponInput('');
+    void reconcile();
+  }
 
   /* --- Submit ------------------------------------------------------------ */
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (busy || quoteBlocked) return;
 
+    // Nothing reaches payment until every mandatory field is valid.
     const validation = validateAddress(address);
-    if (Object.keys(validation).some((k) => validation[k as keyof FieldErrors])) {
+    if (Object.values(validation).some(Boolean)) {
       setErrors(validation);
       formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
       return;
@@ -221,7 +321,7 @@ export function CheckoutClient({
       name: address.name.trim(),
       phone: address.phone.replace(/[\s-]/g, ''),
       alternatePhone: address.alternatePhone.trim() || undefined,
-      email: address.email.trim() || undefined,
+      email: address.email.trim(),
       line1: address.line1.trim(),
       line2: address.line2.trim() || undefined,
       landmark: address.landmark.trim() || undefined,
@@ -240,109 +340,106 @@ export function CheckoutClient({
       /* ignore */
     }
 
-    // Idempotency token: stable across retries of *this* checkout attempt, so a
-    // double tap or a network retry can never create two orders.
-    const token = readOrCreateToken();
-
     // The mobile is always stored on the order, so it is the reliable value for
     // re-verifying on the confirmation page.
     const verifyValue = payloadAddress.phone;
 
-    const bundles = items
-      .filter((i) => i.bundleId)
-      .reduce<Record<string, number>>((acc, i) => {
-        if (i.bundleId) acc[i.bundleId] = (acc[i.bundleId] ?? 0) + i.qty;
-        return acc;
-      }, {});
+    // A pending order is only reusable if the basket is unchanged.
+    if (pending && pending.fingerprint !== fingerprint) {
+      setPending(null);
+      setPaymentError(null);
+      // Rotate the idempotency token so the new basket is not deduplicated
+      // against the abandoned order.
+      clearToken();
+    }
 
-    const body = {
-      lines: items
+    const requestBody = {
+      lines: checkoutItems
         .filter((i) => !i.bundleId)
         .map((i) => ({ productId: i.productId, variantId: i.variantId, qty: i.qty })),
-      bundles: Object.entries(bundles).map(([bundleId, qty]) => ({ bundleId, qty })),
+      bundles: bundleLines(checkoutItems),
       couponCode,
       paymentMethod,
       address: payloadAddress,
       customerNote: note.trim() || undefined,
-      clientCheckoutToken: token,
+      clientCheckoutToken: readOrCreateToken(),
     };
 
-    setPhase({ kind: 'creating' });
+    // --- 1. Reuse the pending order, or ask the server for a new one --------
+    let orderId = pending?.orderId ?? null;
+    let totalPaise = 0;
 
-    let created: {
-      orderId: string;
-      totalPaise: number;
-      paymentMethod: string;
-      razorpayKeyId: string | null;
-      reused: boolean;
-    };
+    if (!orderId) {
+      setPhase('creating');
+      try {
+        const res = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+        const json = (await res.json()) as {
+          ok: boolean;
+          error?: string;
+          details?: Array<{ message?: string }>;
+          data?: { orderId: string; totalPaise: number; paymentMethod: string };
+        };
+        if (!res.ok || !json.ok || !json.data) {
+          setPhase('idle');
+          setFormError(
+            json.details?.[0]?.message ?? json.error ?? 'We could not place this order. Please try again.',
+          );
+          return;
+        }
 
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const json = (await res.json()) as {
-        ok: boolean;
-        error?: string;
-        details?: Array<{ message?: string }>;
-        data?: typeof created;
-      };
-      if (!res.ok || !json.ok || !json.data) {
-        setPhase({ kind: 'idle' });
-        setFormError(
-          json.details?.[0]?.message ?? json.error ?? 'We could not place this order. Please try again.',
-        );
+        orderId = json.data.orderId;
+        totalPaise = json.data.totalPaise;
+
+        // Cash on delivery is complete the moment the order exists.
+        if (json.data.paymentMethod === 'COD') {
+          setPending(null);
+          finish(orderId, totalPaise, verifyValue);
+          return;
+        }
+
+        setPending({ orderId, fingerprint });
+      } catch {
+        setPhase('idle');
+        setFormError('Network problem while placing the order. Please try again.');
         return;
       }
-      created = json.data;
-    } catch {
-      setPhase({ kind: 'idle' });
-      setFormError('Network problem while placing the order. Please try again.');
-      return;
     }
 
-    // Cash on delivery is complete the moment the order exists.
-    if (created.paymentMethod === 'COD') {
-      finish(created.orderId, created.totalPaise, quote?.subtotalPaise ?? created.totalPaise, verifyValue);
-      return;
-    }
+    // --- 2. Create/reuse the Razorpay order and open Checkout ---------------
+    await startPayment(orderId, verifyValue);
+  }
 
-    /* --- Razorpay -------------------------------------------------------- */
-    setPhase({ kind: 'paying' });
+  /** Open (or re-open) Razorpay for an order we already own on the server. */
+  async function startPayment(orderId: string, verifyValue: string) {
+    setPhase('paying');
+    setPaymentError(null);
 
-    let gateway: {
-      razorpayOrderId: string;
-      amount: number;
-      currency: string;
-      keyId: string;
-      name: string;
-      email?: string;
-      contact: string;
-    };
-
+    let gateway: GatewayOrder;
     try {
       const res = await fetch('/api/payments/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: created.orderId }),
+        body: JSON.stringify({ orderId }),
       });
-      const json = (await res.json()) as { ok: boolean; error?: string; data?: typeof gateway };
+      const json = (await res.json()) as { ok: boolean; error?: string; data?: GatewayOrder };
       if (!res.ok || !json.ok || !json.data) {
-        setPhase({ kind: 'idle' });
+        setPhase('idle');
         setFormError(json.error ?? 'We could not start the payment. Please try again.');
         return;
       }
       gateway = json.data;
     } catch {
-      setPhase({ kind: 'idle' });
+      setPhase('idle');
       setFormError('Network problem while starting the payment. Please try again.');
       return;
     }
 
     if (typeof window === 'undefined' || !window.Razorpay) {
-      setPhase({ kind: 'idle' });
+      setPhase('idle');
       setFormError(
         scriptStatus === 'failed'
           ? 'The payment window could not load. Check your connection and try again.'
@@ -353,53 +450,52 @@ export function CheckoutClient({
 
     let settled = false;
 
-    const markAbandoned = (reason: string, description: string) => {
+    const markAbandoned = (code: string, description: string) => {
       if (settled) return;
       settled = true;
       void fetch('/api/payments/verify', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: created.orderId,
-          code: reason,
-          description,
-        }),
+        body: JSON.stringify({ orderId, code, description }),
       }).catch(() => undefined);
     };
 
     const checkout = new window.Razorpay({
-      key: gateway.keyId || created.razorpayKeyId || '',
+      key: gateway.keyId,
       amount: String(gateway.amount),
       currency: gateway.currency,
       name: 'Nature’s Choice Jaggery',
-      description: `Order ${created.orderId}`,
+      description: `Order ${orderId}`,
       order_id: gateway.razorpayOrderId,
       prefill: {
-        name: payloadAddress.name,
-        email: payloadAddress.email,
+        name: gateway.name,
+        email: gateway.email,
         contact: gateway.contact,
       },
-      notes: { orderId: created.orderId },
-      // Razorpay's own retry UX; a failed attempt leaves the order open.
+      notes: { orderId },
+      // Razorpay's own retry UX; a failed attempt leaves our order open.
       retry: { enabled: true, max_attempts: 2 },
       modal: {
         ondismiss: () => {
           markAbandoned('MODAL_DISMISSED', 'The payment window was closed before completing.');
-          setPhase({ kind: 'idle' });
-          setFormError(
-            'The payment window was closed. Your order is saved — you can pay for it now or from the confirmation page.',
+          setPhase('idle');
+          setPaymentError(
+            'You closed the payment window before completing your payment. Your order is saved and your cart is untouched.',
           );
         },
       },
       handler: async (response: Record<string, string>) => {
         if (settled) return;
-        setPhase({ kind: 'verifying' });
+        setPhase('verifying');
 
+        // This is a *request to verify*. The server checks the signature and
+        // re-fetches the payment from Razorpay; the browser's word is never
+        // enough to mark an order paid.
         const res = await fetch('/api/payments/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            orderId: created.orderId,
+            orderId,
             razorpayOrderId: response.razorpay_order_id ?? gateway.razorpayOrderId,
             razorpayPaymentId: response.razorpay_payment_id,
             razorpaySignature: response.razorpay_signature,
@@ -414,33 +510,42 @@ export function CheckoutClient({
             })
           : null;
 
-        // The server is the only authority on whether the money arrived.
         if (!res || !json?.ok || !json.data || json.data.paymentStatus !== 'PAID') {
           settled = true;
-          setPhase({ kind: 'idle' });
-          setFormError(
+          setPhase('idle');
+          setPaymentError(
             json?.error ??
-              'We could not confirm the payment yet. If you were charged, it will be reflected on your order shortly — do not pay again.',
+              'We could not confirm the payment yet. If you were charged, it will appear on your order shortly — do not pay again.',
           );
           return;
         }
 
         settled = true;
-        finish(created.orderId, json.data.totalPaise, gateway.amount, verifyValue);
+        setPending(null);
+        finish(orderId, json.data.totalPaise, verifyValue);
       },
     });
 
     try {
       checkout.open();
     } catch {
-      setPhase({ kind: 'idle' });
+      setPhase('idle');
       setFormError('The payment window could not be opened. Please try again.');
     }
   }
 
-  function finish(orderId: string, totalPaise: number, valuePaise: number, contactValue: string) {
+  /** Retry payment for the order we already created. Never creates a new order. */
+  function onRetryPayment() {
+    if (!pending || busy) return;
+    setPaymentError(null);
+    void startPayment(pending.orderId, address.phone.replace(/[\s-]/g, ''));
+  }
+
+  function finish(orderId: string, totalPaise: number, contactValue: string) {
     clearToken();
-    clearCart();
+    // Only now, after the server has verified the payment, is the purchased
+    // basket cleared. A "Buy now" purchase leaves unrelated cart items alone.
+    completePurchase();
 
     // Stash the contact this browser just supplied so the confirmation page can
     // re-verify without asking again. It is a convenience, not an authorisation.
@@ -449,14 +554,11 @@ export function CheckoutClient({
     router.push(`/order/${orderId}?placed=1&total=${totalPaise}`);
   }
 
-  const subtotal = quote?.subtotalPaise ?? 0;
-  const total = quote?.totalPaise ?? 0;
-
   return (
     <form onSubmit={onSubmit} ref={formRef} noValidate className="nc-container py-8 sm:py-12">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_23rem] lg:gap-12">
         {/* ---------------------------------------------------------------- */}
-        {/* Left column: address + payment                                   */}
+        {/* Left column: contact + address                                    */}
         {/* ---------------------------------------------------------------- */}
         <div className="min-w-0 space-y-8">
           <section aria-labelledby="checkout-heading">
@@ -467,6 +569,15 @@ export function CheckoutClient({
               One page, no account needed. You will get an order ID you can use to
               track the parcel.
             </p>
+            {isBuyNow ? (
+              <p className="mt-3 text-sm text-ink-muted">
+                Checking out a single item. Your cart is untouched and still waiting
+                for you.{' '}
+                <Link href={ALL_ROUTES.cart} className="nc-link">
+                  View cart
+                </Link>
+              </p>
+            ) : null}
           </section>
 
           {formError ? (
@@ -475,12 +586,39 @@ export function CheckoutClient({
             </Alert>
           ) : null}
 
+          {/*
+            Payment failure. The order exists but is NOT confirmed, the cart is
+            still full, and the customer can safely retry the same order.
+          */}
+          {paymentError ? (
+            <Alert tone="error" title="Payment failed. Your order has not been confirmed.">
+              <p>{paymentError}</p>
+              {pending ? (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={onRetryPayment}
+                    disabled={busy}
+                    className="nc-btn-primary"
+                  >
+                    {phase === 'paying' ? 'Opening payment…' : 'Try Payment Again'}
+                  </button>
+                  <span className="text-xs text-ink-muted">
+                    Order {pending.orderId} is saved — retrying will not create a
+                    second order.
+                  </span>
+                </div>
+              ) : null}
+            </Alert>
+          ) : null}
+
           {/* --- Contact ---------------------------------------------------- */}
           <fieldset className="nc-card p-5 sm:p-6" disabled={busy}>
             <legend className="sr-only">Contact details</legend>
-            <h2 className="font-display text-lg text-jaggery-500">Contact details</h2>
+            <h2 className="font-display text-lg text-jaggery-500">Delivery details</h2>
             <p className="mt-1 text-sm text-ink-muted">
-              We use these only for this order — delivery updates and support.
+              All fields are required so the parcel reaches you and we can send your
+              confirmation.
             </p>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -511,15 +649,15 @@ export function CheckoutClient({
               <TextInput
                 label="Email address"
                 name="email"
+                required
                 type="email"
                 autoComplete="email"
                 maxLength={160}
                 className="sm:col-span-2"
-                optional
                 value={address.email}
                 onChange={(e) => set('email', e.target.value)}
                 error={errors.email}
-                hint="Optional, but it is the fastest way for us to send your order confirmation."
+                hint="Your order confirmation and invoice are sent here."
               />
             </div>
           </fieldset>
@@ -534,7 +672,7 @@ export function CheckoutClient({
 
             <div className="mt-5 grid gap-4 sm:grid-cols-6">
               <TextInput
-                label="House / flat and street"
+                label="Address (house / flat and street)"
                 name="line1"
                 required
                 autoComplete="address-line1"
@@ -680,6 +818,17 @@ export function CheckoutClient({
               </div>
             )}
 
+            {methodAvailable && !selectedAvailable ? (
+              <Alert tone="warning" title="Please choose another payment method" className="mt-4">
+                <p>
+                  {paymentMethod === 'COD'
+                    ? (quote?.codBlockedReason ?? 'Cash on delivery is not available for this order right now.')
+                    : 'Online payment is not available for this order right now.'}{' '}
+                  Select the available option below to continue.
+                </p>
+              </Alert>
+            ) : null}
+
             {quote && quote.issues.length > 0 ? (
               <Alert tone="warning" title="Some items need attention" className="mt-4">
                 <ul className="mt-1 space-y-0.5">
@@ -698,31 +847,135 @@ export function CheckoutClient({
         </div>
 
         {/* ---------------------------------------------------------------- */}
-        {/* Right column: order summary + place order                        */}
+        {/* Right column: order summary, coupon, pay                          */}
         {/* ---------------------------------------------------------------- */}
         <aside className="lg:sticky lg:top-28 lg:self-start">
           <div className="rounded-card border border-cream-300 bg-white p-5 sm:p-6">
-            <h2 className="font-display text-lg text-jaggery-500">Your order</h2>
+            <h2 className="font-display text-lg text-jaggery-500">Order summary</h2>
 
+            {/* --- Items. Every price below comes from the server quote. --- */}
             <ul className="mt-4 divide-y divide-cream-200 border-y border-cream-200">
-              {items.map((item) => (
-                <li key={item.key} className="flex items-start justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-ink">
-                      {item.name}
-                      <span className="ml-1.5 text-ink-muted">× {item.qty}</span>
-                    </p>
-                    <p className="mt-0.5 text-xs text-ink-faint">
-                      {item.bundleName ? 'Bundle' : item.weightLabel}
-                    </p>
+              {summaryRows.map((row) => (
+                <li key={row.id} className="flex gap-3 py-3">
+                  <span className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-cream-300 bg-cream-50">
+                    {row.imageUrl ? (
+                      <OptimizedImage
+                        src={row.imageUrl}
+                        alt={row.name}
+                        aspect="1/1"
+                        fit="contain"
+                        sizes="64px"
+                        maxWidth={160}
+                      />
+                    ) : (
+                      <ImageFallback alt={row.name} aspect="1/1" />
+                    )}
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">{row.name}</p>
+                        <p className="mt-0.5 text-xs text-ink-muted">{row.variant}</p>
+                        <p className="mt-0.5 text-xs text-ink-faint">
+                          {formatINR(row.unitPricePaise)} × {row.qty}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold tabular-nums text-ink">
+                        <PriceCompact paise={row.lineTotalPaise} />
+                      </p>
+                    </div>
+                    {row.detail ? (
+                      <p className="mt-1 text-2xs text-ink-faint">{row.detail}</p>
+                    ) : null}
+                    {row.cartKey ? (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(row.cartKey!)}
+                        disabled={busy}
+                        className="mt-1.5 text-2xs font-medium text-ink-muted underline decoration-cream-400 underline-offset-4 hover:text-[#8F3333] disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
                   </div>
-                  <p className="shrink-0 text-sm font-semibold tabular-nums text-ink">
-                    <PriceCompact paise={item.unitPricePaise * item.qty} />
-                  </p>
                 </li>
               ))}
             </ul>
 
+            {/* --- Coupon. Entirely optional. ---------------------------- */}
+            <div className="mt-4 rounded-xl border border-cream-300 bg-cream-50 p-4">
+              {couponCode && quote?.coupon?.valid ? (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-leaf-600">
+                      Coupon {quote.coupon.code} applied
+                    </p>
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      You saved <PriceCompact paise={couponDiscount} />.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onRemoveCoupon}
+                    disabled={busy}
+                    className="shrink-0 text-xs font-medium text-ink-muted underline decoration-cream-400 underline-offset-4 hover:text-[#8F3333] disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={onApplyCoupon} noValidate>
+                  <label htmlFor="coupon" className="nc-label">
+                    Have a coupon code?
+                  </label>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      id="coupon"
+                      name="coupon"
+                      type="text"
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      maxLength={40}
+                      placeholder="Enter coupon code"
+                      value={couponInput}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value);
+                        setCouponMessage(null);
+                      }}
+                      disabled={busy}
+                      aria-describedby={couponMessage ? 'coupon-message' : undefined}
+                      aria-invalid={couponMessage ? !couponMessage.ok : undefined}
+                      className="nc-input min-w-0 flex-1 uppercase"
+                    />
+                    <button
+                      type="submit"
+                      disabled={busy || couponBusy || couponInput.trim().length === 0}
+                      className="nc-btn-outline shrink-0"
+                    >
+                      {couponBusy ? 'Checking…' : 'Apply'}
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-2xs text-ink-faint">
+                    Optional. Your discount is calculated on the server.
+                  </p>
+                  {couponMessage ? (
+                    <p
+                      id="coupon-message"
+                      role="status"
+                      className={`mt-2 text-xs font-medium ${couponMessage.ok ? 'text-leaf-600' : 'text-[#8F3333]'}`}
+                    >
+                      {couponMessage.ok
+                        ? couponMessage.text
+                        : `Invalid or expired coupon code. ${couponMessage.text}`}
+                    </p>
+                  ) : null}
+                </form>
+              )}
+            </div>
+
+            {/* --- Totals. All server-computed. ---------------------------- */}
             <dl className="mt-4 space-y-2.5 text-sm">
               <div className="flex items-center justify-between">
                 <dt className="text-ink-soft">Subtotal</dt>
@@ -738,26 +991,30 @@ export function CheckoutClient({
               {quote && quote.productDiscountPaise > 0 ? (
                 <div className="flex items-center justify-between text-leaf-500">
                   <dt>Product savings</dt>
-                  <dd className="font-semibold tabular-nums">−<PriceCompact paise={quote.productDiscountPaise} /></dd>
+                  <dd className="font-semibold tabular-nums">
+                    −<PriceCompact paise={quote.productDiscountPaise} />
+                  </dd>
                 </div>
               ) : null}
 
-              {quote && quote.couponDiscountPaise > 0 ? (
+              {couponDiscount > 0 ? (
                 <div className="flex items-center justify-between text-leaf-500">
-                  <dt>Coupon ({quote.coupon?.code})</dt>
-                  <dd className="font-semibold tabular-nums">−<PriceCompact paise={quote.couponDiscountPaise} /></dd>
+                  <dt>Coupon discount{quote?.coupon?.code ? ` (${quote.coupon.code})` : ''}</dt>
+                  <dd className="font-semibold tabular-nums">
+                    −<PriceCompact paise={couponDiscount} />
+                  </dd>
                 </div>
               ) : null}
 
               <div className="flex items-center justify-between">
-                <dt className="text-ink-soft">Shipping</dt>
+                <dt className="text-ink-soft">Delivery</dt>
                 <dd className="font-semibold tabular-nums text-ink">
                   {!quote ? (
                     <span className="text-ink-faint">Calculating…</span>
-                  ) : quote.shippingPaise === 0 ? (
-                    'Free'
+                  ) : freeDelivery ? (
+                    <span className="text-leaf-600">Free</span>
                   ) : (
-                    formatINR(quote.shippingPaise)
+                    formatINR(delivery)
                   )}
                 </dd>
               </div>
@@ -772,8 +1029,26 @@ export function CheckoutClient({
               ) : null}
             </dl>
 
+            {/* Free-shipping progress, only when a threshold is configured. */}
+            {quote && quote.freeShippingThresholdPaise && !quote.freeShippingUnlocked ? (
+              <p className="mt-3 text-xs text-ink-soft">
+                Add{' '}
+                <span className="font-semibold text-ginger-600">
+                  {formatINR(quote.freeShippingShortfallPaise)}
+                </span>{' '}
+                more to unlock free delivery
+              </p>
+            ) : freeDelivery && quote?.freeShippingUnlocked ? (
+              <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-leaf-600">
+                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m3.5 8.5 3 3 6-7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Free delivery unlocked
+              </p>
+            ) : null}
+
             <div className="mt-4 flex items-baseline justify-between border-t border-cream-300 pt-4">
-              <span className="text-sm font-semibold text-ink">Total payable</span>
+              <span className="text-sm font-semibold text-ink">Total</span>
               <span className="text-2xl font-semibold tabular-nums text-jaggery-500">
                 {quote ? (
                   <PriceCompact paise={total} />
@@ -788,15 +1063,17 @@ export function CheckoutClient({
               disabled={busy || quoteBlocked}
               className="nc-btn-accent nc-btn-block mt-6"
             >
-              {phase.kind === 'creating'
+              {phase === 'creating'
                 ? 'Placing your order…'
-                : phase.kind === 'paying'
+                : phase === 'paying'
                   ? 'Opening payment…'
-                  : phase.kind === 'verifying'
+                  : phase === 'verifying'
                     ? 'Confirming payment…'
-                    : paymentMethod === 'COD'
-                      ? 'Place order'
-                      : `Pay ${quote ? formatINR(total) : ''}`}
+                    : pending
+                      ? `Retry payment · ${quote ? formatINR(total) : ''}`
+                      : paymentMethod === 'COD'
+                        ? 'Place order'
+                        : `Pay ${quote ? formatINR(total) : ''}`}
             </button>
 
             {busy ? (
@@ -806,9 +1083,8 @@ export function CheckoutClient({
             ) : null}
 
             <p className="mt-4 text-center text-2xs leading-relaxed text-ink-faint">
-              We confirm every amount on the server before your order is placed. If
-              anything changes between now and then, you will see the corrected total
-              before paying.
+              We confirm every amount on the server before your order is placed, and
+              we verify the payment with Razorpay before we call your order confirmed.
             </p>
           </div>
 
@@ -857,6 +1133,98 @@ export function CheckoutClient({
       </div>
     </form>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Summary helpers                                                             */
+/* -------------------------------------------------------------------------- */
+
+function bundleLines(
+  items: Array<{ bundleId?: string | null; bundleName?: string | null; qty: number }>,
+): Array<{ bundleId: string; qty: number }> {
+  const totals = new Map<string, number>();
+  for (const item of items) {
+    if (!item.bundleId) continue;
+    totals.set(item.bundleId, (totals.get(item.bundleId) ?? 0) + item.qty);
+  }
+  return Array.from(totals, ([bundleId, qty]) => ({ bundleId, qty }));
+}
+
+interface SummaryRow {
+  id: string;
+  name: string;
+  variant: string;
+  imageUrl: string | null;
+  unitPricePaise: number;
+  qty: number;
+  lineTotalPaise: number;
+  /** Cart key this row maps to, so "Remove" can drop it. */
+  cartKey: string | null;
+  detail?: string;
+}
+
+/**
+ * Build the checkout summary from the SERVER quote.
+ *
+ * A quote line is matched back to the cart line that produced it, so the row can
+ * be removed. Bundle components are collapsed into one bundle row because the
+ * server has already priced the bundle as a whole.
+ */
+function buildSummaryRows(
+  items: Array<{
+    key: string;
+    productId: string;
+    variantId: string;
+    name: string;
+    weightLabel: string;
+    imageUrl: string | null;
+    bundleId?: string | null;
+    bundleName?: string | null;
+  }>,
+  quoteLines: QuoteLine[],
+): SummaryRow[] {
+  const plainItems = items.filter((i) => !i.bundleId);
+  const claimed = new Set<string>();
+  const rows: SummaryRow[] = [];
+
+  for (const item of plainItems) {
+    const match = quoteLines.find(
+      (l) => l.productId === item.productId && l.variantId === item.variantId,
+    );
+    const key = `${item.productId}:${item.variantId}`;
+    if (match) claimed.add(key);
+    rows.push({
+      id: item.key,
+      name: match?.name ?? item.name,
+      variant: match?.weightLabel ?? item.weightLabel,
+      imageUrl: match?.imageUrl ?? item.imageUrl,
+      // Server price when we have one; the local snapshot is only a placeholder
+      // while the quote is in flight, and is replaced the moment it lands.
+      unitPricePaise: match?.unitPricePaise ?? 0,
+      qty: match?.qty ?? 0,
+      lineTotalPaise: match?.lineTotalPaise ?? 0,
+      cartKey: item.key,
+    });
+  }
+
+  for (const item of items.filter((i) => i.bundleId)) {
+    const components = quoteLines.filter((l) => !claimed.has(`${l.productId}:${l.variantId}`));
+    for (const c of components) claimed.add(`${c.productId}:${c.variantId}`);
+    const total = components.reduce((s, c) => s + c.lineTotalPaise, 0);
+    rows.push({
+      id: item.key,
+      name: item.bundleName ?? item.name,
+      variant: `${components.length || item.weightLabel}`,
+      imageUrl: item.imageUrl,
+      unitPricePaise: components.length ? Math.round(total / components.length) : 0,
+      qty: components.reduce((s, c) => s + c.qty, 0),
+      lineTotalPaise: total,
+      cartKey: item.key,
+      detail: components.map((c) => c.name).join(' · '),
+    });
+  }
+
+  return rows;
 }
 
 /* -------------------------------------------------------------------------- */

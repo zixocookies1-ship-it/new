@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { usePathname } from 'next/navigation';
 
 /**
  * Cart state.
@@ -71,41 +72,76 @@ export interface CartQuote {
   onlinePaymentAvailable: boolean;
 }
 
+export interface CartToast {
+  id: number;
+  message: string;
+  tone: 'success' | 'info' | 'error';
+  /** Optional affordance, e.g. "Open cart". */
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
 interface CartState {
   items: CartItem[];
+  /**
+   * Items the customer chose with "Buy now". They are checked out immediately and
+   * are deliberately kept separate from `items`, so a successful purchase can
+   * never delete unrelated things that were already sitting in the cart.
+   */
+  buyNowItems: CartItem[];
+  /** True while checkout is operating on `buyNowItems` rather than the cart. */
+  isBuyNow: boolean;
+  /**
+   * What checkout is actually buying: the buy-now lines when a "Buy now" purchase
+   * is in progress, otherwise the cart. Both the checkout page and the
+   * server-authoritative quote read this.
+   */
+  checkoutItems: CartItem[];
   couponCode: string | null;
   hydrated: boolean;
   quote: CartQuote | null;
   quoteLoading: boolean;
   paymentMethod: 'RAZORPAY' | 'COD';
   drawerOpen: boolean;
+  toast: CartToast | null;
 }
 
 interface CartActions {
   /**
-   * Adds an item to the cart. By default the cart drawer opens as the
-   * confirmation; pages that want to keep the customer in place (e.g.
-   * the About page flavour cards) pass `{ openDrawer: false }` and
-   * surface their own "Added" feedback instead.
+   * Adds an item to the cart and shows a small "Added to cart ✓" toast.
+   * The cart drawer is deliberately NOT opened — the customer stays where they
+   * are and keeps shopping. Pass `{ openDrawer: true }` to opt into the drawer.
    */
   addItem: (
     item: Omit<CartItem, 'key' | 'qty'>,
     qty?: number,
-    opts?: { openDrawer?: boolean },
+    opts?: { openDrawer?: boolean; silent?: boolean },
   ) => void;
   addBundle: (
     bundle: { bundleId: string; name: string; items: Array<{ productId: string; variantId: string; slug: string; name: string; flavour: string; weightLabel: string; imageUrl: string | null; unitPricePaise: number; mrpPaise: number | null; qty: number }> },
     qty?: number,
   ) => void;
+  /** Make `item` the checkout item and send the customer straight to checkout. */
+  buyNow: (item: Omit<CartItem, 'key' | 'qty'>, qty?: number) => void;
+  /** Abandon a buy-now checkout. The cart is left untouched. */
+  cancelBuyNow: () => void;
   updateQty: (key: string, qty: number) => void;
   removeItem: (key: string) => void;
   clearCart: () => void;
+  /**
+   * Called ONLY after the server has verified the payment.
+   *  - normal checkout  -> the cart (and its coupon) is emptied
+   *  - "Buy now"        -> only the buy-now lines are dropped, the cart survives
+   */
+  completePurchase: () => void;
   applyCoupon: (code: string) => Promise<{ ok: boolean; message: string }>;
   removeCoupon: () => void;
   setPaymentMethod: (m: 'RAZORPAY' | 'COD') => void;
   reconcile: () => Promise<CartQuote | null>;
   openDrawer: () => void;
   closeDrawer: () => void;
+  notify: (message: string, tone?: CartToast['tone'], action?: { label: string; onClick: () => void }) => void;
+  dismissToast: () => void;
   count: number;
   hasIssues: boolean;
 }
@@ -114,6 +150,11 @@ const CartContext = createContext<(CartState & CartActions) | null>(null);
 
 const STORAGE_KEY = 'nc_cart_v1';
 const META_KEY = 'nc_cart_meta_v1';
+/**
+ * Buy-now lines live in sessionStorage, not localStorage: they belong to one
+ * browsing session, and a refresh mid-checkout must not lose them.
+ */
+const BUY_NOW_KEY = 'nc_buy_now_v1';
 
 interface PersistedCart {
   items: CartItem[];
@@ -145,14 +186,68 @@ function writeStorage(items: CartItem[], couponCode: string | null, paymentMetho
   }
 }
 
+function readBuyNow(): CartItem[] {
+  try {
+    const raw = window.sessionStorage.getItem(BUY_NOW_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as CartItem[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((i) => i && typeof i.key === 'string' && i.productId && i.variantId);
+  } catch {
+    return [];
+  }
+}
+
+function writeBuyNow(next: CartItem[]): void {
+  try {
+    if (next.length === 0) window.sessionStorage.removeItem(BUY_NOW_KEY);
+    else window.sessionStorage.setItem(BUY_NOW_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [buyNowItems, setBuyNowItems] = useState<CartItem[]>([]);
   const [couponCode, setCouponCode] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'RAZORPAY' | 'COD'>('RAZORPAY');
   const [hydrated, setHydrated] = useState(false);
   const [quote, setQuote] = useState<CartQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [toast, setToast] = useState<CartToast | null>(null);
+
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** What checkout is buying right now. */
+  const isBuyNow = buyNowItems.length > 0;
+  const checkoutItems = isBuyNow ? buyNowItems : items;
+
+  const dismissToast = useCallback(() => {
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+      toastTimer.current = null;
+    }
+    setToast(null);
+  }, []);
+
+  const notify = useCallback<CartActions['notify']>((message, tone = 'success', action) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ id: Date.now(), message, tone, actionLabel: action?.label, onAction: action?.onClick });
+    toastTimer.current = setTimeout(() => {
+      toastTimer.current = null;
+      setToast(null);
+    }, 3200);
+  }, []);
+
+  // Clear any toast on unmount so a timer cannot fire into a dead tree.
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
+    [],
+  );
 
   // Cross-tab sync without any dependency.
   const broadcast = useCallback(() => {
@@ -174,6 +269,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setCouponCode(stored.couponCode);
       setPaymentMethod(stored.paymentMethod === 'COD' ? 'COD' : 'RAZORPAY');
     }
+    setBuyNowItems(readBuyNow());
     setHydrated(true);
   }, []);
 
@@ -182,6 +278,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     writeStorage(items, couponCode, paymentMethod);
   }, [items, couponCode, paymentMethod, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    writeBuyNow(buyNowItems);
+  }, [buyNowItems, hydrated]);
+
+  /**
+   * A buy-now checkout only lives on the checkout page. The moment the customer
+   * navigates anywhere else the buy-now lines are dropped, so the cart drawer and
+   * cart page always describe the real cart again.
+   */
+  const pathname = usePathname();
+  useEffect(() => {
+    if (!hydrated || buyNowItems.length === 0) return;
+    if (pathname && !pathname.startsWith('/checkout')) setBuyNowItems([]);
+  }, [pathname, hydrated, buyNowItems.length]);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -197,6 +309,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // --- server-authoritative quote -----------------------------------------
+  // The quote always describes `checkoutItems`, so during a "Buy now" purchase
+  // the server prices the buy-now lines and not the cart behind them.
+  const checkoutItemsRef = useRef(checkoutItems);
+  checkoutItemsRef.current = checkoutItems;
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const couponRef = useRef(couponCode);
@@ -206,7 +322,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const inFlight = useRef(false);
 
   const reconcile = useCallback(async (): Promise<CartQuote | null> => {
-    const current = itemsRef.current;
+    const current = checkoutItemsRef.current;
     if (current.length === 0) {
       setQuote(null);
       return null;
@@ -257,23 +373,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Reconcile whenever the cart meaningfully changes (debounced).
+  // Reconcile whenever what we are buying meaningfully changes (debounced).
   useEffect(() => {
     if (!hydrated) return;
-    if (items.length === 0) {
+    if (checkoutItems.length === 0) {
       setQuote(null);
       return;
     }
     const t = setTimeout(() => void reconcile(), 350);
     return () => clearTimeout(t);
-  }, [items, couponCode, paymentMethod, hydrated, reconcile]);
+  }, [checkoutItems, couponCode, paymentMethod, hydrated, reconcile]);
 
   // --- actions -------------------------------------------------------------
   const addItem = useCallback(
     (
       item: Omit<CartItem, 'key' | 'qty'>,
       qty = 1,
-      opts?: { openDrawer?: boolean },
+      opts?: { openDrawer?: boolean; silent?: boolean },
     ) => {
       const key = `${item.productId}:${item.variantId}`;
       setItems((prev) => {
@@ -286,9 +402,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return [...prev, { ...item, key, qty: Math.min(20, Math.max(1, qty)) }];
       });
       broadcast();
-      if (opts?.openDrawer !== false) setDrawerOpen(true);
+      // Stay on the page. The customer keeps shopping; the toast is the receipt.
+      if (opts?.openDrawer) setDrawerOpen(true);
+      else if (!opts?.silent) {
+        notify(
+          qty > 1 ? `${item.name} ×${qty} added to cart ✓` : `${item.name} added to cart ✓`,
+          'success',
+          { label: 'View cart', onClick: () => setDrawerOpen(true) },
+        );
+      }
     },
-    [broadcast],
+    [broadcast, notify],
   );
 
   const addBundle = useCallback(
@@ -344,21 +468,58 @@ export function CartProvider({ children }: { children: ReactNode }) {
         ];
       });
       broadcast();
-      setDrawerOpen(true);
+      // Stay on the page; toast instead of the drawer.
+      notify(`${bundle.name} added to cart ✓`, 'success', {
+        label: 'View cart',
+        onClick: () => setDrawerOpen(true),
+      });
     },
-    [broadcast],
+    [broadcast, notify],
   );
 
-  const updateQty = useCallback((key: string, qty: number) => {
-    setItems((prev) => {
-      if (qty <= 0) return prev.filter((i) => i.key !== key);
-      return prev.map((i) => (i.key === key ? { ...i, qty: Math.min(20, qty) } : i));
-    });
+  /**
+   * "Buy now": the product becomes the checkout item immediately. The customer's
+   * existing cart is left completely alone — it is neither read, modified, nor
+   * cleared by this path.
+   */
+  const buyNow = useCallback((item: Omit<CartItem, 'key' | 'qty'>, qty = 1) => {
+    const key = `${item.productId}:${item.variantId}`;
+    setBuyNowItems([{ ...item, key, qty: Math.min(20, Math.max(1, qty)) }]);
+    setQuote(null);
   }, []);
 
-  const removeItem = useCallback((key: string) => {
-    setItems((prev) => prev.filter((i) => i.key !== key));
+  const cancelBuyNow = useCallback(() => {
+    setBuyNowItems([]);
+    setQuote(null);
   }, []);
+
+  const updateQty = useCallback((key: string, qty: number) => {
+    const apply = (prev: CartItem[]) => {
+      if (qty <= 0) return prev.filter((i) => i.key !== key);
+      return prev.map((i) => (i.key === key ? { ...i, qty: Math.min(20, qty) } : i));
+    };
+    // Edit whichever set checkout is currently operating on.
+    if (buyNowItems.length > 0) {
+      const next = apply(buyNowItems);
+      setBuyNowItems(next);
+      if (next.length === 0) setQuote(null);
+      return;
+    }
+    setItems(apply);
+  }, [buyNowItems]);
+
+  const removeItem = useCallback(
+    (key: string) => {
+      if (buyNowItems.length > 0) {
+        const next = buyNowItems.filter((i) => i.key !== key);
+        setBuyNowItems(next);
+        if (next.length === 0) setQuote(null);
+        return;
+      }
+      setItems((prev) => prev.filter((i) => i.key !== key));
+    },
+    [buyNowItems],
+  );
 
   const clearCart = useCallback(() => {
     setItems([]);
@@ -366,9 +527,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setQuote(null);
   }, []);
 
+  /**
+   * Post-payment cleanup. Only ever called once the server has verified the
+   * payment. A "Buy now" purchase drops just its own lines, so anything the
+   * customer had in their cart survives the purchase.
+   */
+  const completePurchase = useCallback(() => {
+    if (buyNowItems.length > 0) {
+      setBuyNowItems([]);
+      setQuote(null);
+      return;
+    }
+    setItems([]);
+    setCouponCode(null);
+    setQuote(null);
+  }, [buyNowItems.length]);
+
   const applyCoupon = useCallback(
     async (code: string): Promise<{ ok: boolean; message: string }> => {
-      const current = itemsRef.current;
+      // Price the active checkout set so a coupon applied at checkout is
+      // validated against exactly what is being bought.
+      const current = checkoutItemsRef.current;
       if (current.length === 0) return { ok: false, message: 'Add an item to your cart first.' };
 
       const bundles = current
@@ -420,48 +599,132 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const value = useMemo<CartState & CartActions>(
     () => ({
       items,
+      buyNowItems,
+      isBuyNow,
+      checkoutItems,
       couponCode,
       hydrated,
       quote,
       quoteLoading,
       paymentMethod,
       drawerOpen,
+      toast,
       addItem,
       addBundle,
+      buyNow,
+      cancelBuyNow,
       updateQty,
       removeItem,
       clearCart,
+      completePurchase,
       applyCoupon,
       removeCoupon,
       setPaymentMethod,
       reconcile,
       openDrawer: () => setDrawerOpen(true),
       closeDrawer: () => setDrawerOpen(false),
+      notify,
+      dismissToast,
       count,
       hasIssues,
     }),
     [
       items,
+      buyNowItems,
+      isBuyNow,
+      checkoutItems,
       couponCode,
       hydrated,
       quote,
       quoteLoading,
       paymentMethod,
       drawerOpen,
+      toast,
       addItem,
       addBundle,
+      buyNow,
+      cancelBuyNow,
       updateQty,
       removeItem,
       clearCart,
+      completePurchase,
       applyCoupon,
       removeCoupon,
       reconcile,
+      notify,
+      dismissToast,
       count,
       hasIssues,
     ],
   );
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+      <CartToast toast={toast} onDismiss={dismissToast} />
+    </CartContext.Provider>
+  );
+}
+
+/**
+ * The "Added to cart ✓" receipt.
+ *
+ * Small, non-blocking, and gone in a few seconds — it must never steal focus or
+ * interrupt someone who is still choosing what to buy. Rendered once, here, so
+ * every add-to-cart surface in the storefront gets it for free.
+ */
+function CartToast({ toast, onDismiss }: { toast: CartToast | null; onDismiss: () => void }) {
+  if (!toast) return null;
+
+  const tone =
+    toast.tone === 'error'
+      ? 'border-[#8F3333]/30 bg-white text-[#8F3333]'
+      : toast.tone === 'info'
+        ? 'border-cream-400 bg-white text-ink'
+        : 'border-leaf-600/25 bg-white text-leaf-600';
+
+  return (
+    <div
+      // `polite` so a screen reader announces the confirmation without
+      // interrupting whatever the customer is doing.
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex justify-center px-4 nc-safe-bottom lg:bottom-6"
+    >
+      <div
+        className={`pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-full border px-4 py-2.5 text-sm font-medium shadow-card-hover ${tone}`}
+      >
+        {toast.tone === 'success' ? (
+          <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="m4.5 10.5 3.5 3.5 7.5-8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : null}
+        <span className="truncate">{toast.message}</span>
+        {toast.actionLabel && toast.onAction ? (
+          <button
+            type="button"
+            onClick={() => {
+              toast.onAction?.();
+              onDismiss();
+            }}
+            className="shrink-0 font-semibold underline decoration-current/30 underline-offset-4 hover:decoration-current"
+          >
+            {toast.actionLabel}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="-mr-1 shrink-0 rounded-full p-1 opacity-60 transition-opacity hover:opacity-100"
+        >
+          <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="m5 5 10 10M15 5 5 15" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function useCart(): CartState & CartActions {

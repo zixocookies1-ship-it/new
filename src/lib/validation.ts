@@ -62,7 +62,12 @@ export const addressSchema = z.object({
     .max(15)
     .optional()
     .or(z.literal('')),
-  email: z.union([email, z.literal('')]).optional(),
+  /**
+   * Email is mandatory. The order confirmation and the invoice are addressed to
+   * it, and it is one of the two values `/api/track` accepts as proof that the
+   * caller owns the order.
+   */
+  email,
   line1: z.string().trim().min(4, 'Enter the house / street address.').max(240),
   line2: z.string().trim().max(240).optional().or(z.literal('')),
   landmark: z.string().trim().max(160).optional().or(z.literal('')),

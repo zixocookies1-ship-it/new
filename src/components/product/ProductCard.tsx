@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useRef, useState } from 'react';
 import clsx from 'clsx';
 
 import { OptimizedImage } from '@/components/media/OptimizedImage';
 import { Price } from '@/components/ui/Price';
 import { Rating } from '@/components/ui/Rating';
 import { useCart } from '@/components/cart/CartProvider';
+import { ALL_ROUTES } from '@/lib/site';
 import type { ProductVM } from '@/lib/catalog';
 
 /**
@@ -17,6 +19,13 @@ import type { ProductVM } from '@/lib/catalog';
  *  - packaging is never cropped (`fit="contain"`, `.nc-product-media`)
  *  - "Add to cart" only appears when the product has a priced, in-stock variant
  *  - no urgency/scarcity language, no invented badges
+ *
+ * Purchase paths:
+ *  - "Add to cart" adds the product and leaves the customer exactly where they
+ *    are; the shared toast confirms it so they can keep browsing.
+ *  - "Buy now" makes this product the checkout item and navigates straight to
+ *    checkout, without requiring a trip through the cart first and without
+ *    disturbing whatever else is already in the cart.
  */
 export function ProductCard({
   product,
@@ -29,33 +38,41 @@ export function ProductCard({
   className?: string;
   compact?: boolean;
 }) {
-  const { addItem } = useCart();
+  const router = useRouter();
+  const { addItem, buyNow } = useCart();
   const [adding, setAdding] = useState(false);
+  const addingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Only in-stock, priced, active variants are addable.
   const addable = product.variants.find((v) => v.inStock && v.pricePaise > 0) ?? null;
   const soldOut = !product.inStock;
   const hasRating = product.rating.count > 0;
 
+  const lineFor = (variant: NonNullable<typeof addable>) => ({
+    productId: product.id,
+    variantId: variant.id,
+    slug: product.slug,
+    name: product.name,
+    flavour: product.flavour,
+    weightLabel: variant.weightLabel,
+    imageUrl: product.primaryImage?.url ?? null,
+    unitPricePaise: variant.pricePaise,
+    mrpPaise: variant.mrpPaise,
+  });
+
   const handleAdd = () => {
     if (!addable || adding) return;
     setAdding(true);
-    addItem(
-      {
-        productId: product.id,
-        variantId: addable.id,
-        slug: product.slug,
-        name: product.name,
-        flavour: product.flavour,
-        weightLabel: addable.weightLabel,
-        imageUrl: product.primaryImage?.url ?? null,
-        unitPricePaise: addable.pricePaise,
-        mrpPaise: addable.mrpPaise,
-      },
-      1,
-    );
-    // Brief feedback; the cart drawer opening is the real confirmation.
-    setTimeout(() => setAdding(false), 900);
+    addItem(lineFor(addable), 1);
+    // Brief inline feedback; the shared toast carries the confirmation.
+    if (addingTimer.current) clearTimeout(addingTimer.current);
+    addingTimer.current = setTimeout(() => setAdding(false), 1200);
+  };
+
+  const handleBuyNow = () => {
+    if (!addable) return;
+    buyNow(lineFor(addable), 1);
+    router.push(ALL_ROUTES.checkout);
   };
 
   return (
@@ -140,12 +157,13 @@ export function ProductCard({
             >
               {adding ? 'Added ✓' : 'Add to cart'}
             </button>
-            <Link
-              href={`/checkout?product=${product.slug}&variant=${addable.id}`}
+            <button
+              type="button"
+              onClick={handleBuyNow}
               className="nc-btn nc-btn-accent nc-btn-sm nc-btn-block"
             >
               Buy now
-            </Link>
+            </button>
           </div>
         ) : (
           <Link

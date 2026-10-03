@@ -112,7 +112,7 @@ const ShippingConfigurationSchema = new Schema<ShippingConfigurationDoc>(
     shippingDisabledMessage: {
       type: String,
       default:
-        'Online ordering is being set up. Please check back shortly or use the contact page to reach us.',
+        'Online ordering is temporarily paused. Please check back shortly or use the contact page to reach us.',
       trim: true,
     },
     unserviceableMessage: {
@@ -128,18 +128,18 @@ const ShippingConfigurationSchema = new Schema<ShippingConfigurationDoc>(
     },
     shippingPolicyNote: { type: String, default: '', trim: true, maxlength: 2000 },
 
-    shippingEnabled: { type: Boolean, default: false },
-    flatShippingPaise: { type: Number, default: 0, min: 0 },
-    freeShippingEnabled: { type: Boolean, default: false },
-    freeShippingThresholdPaise: { type: Number, default: null, min: 0 },
+    shippingEnabled: { type: Boolean, default: true },
+    flatShippingPaise: { type: Number, default: 5900, min: 0 },
+    freeShippingEnabled: { type: Boolean, default: true },
+    freeShippingThresholdPaise: { type: Number, default: 59900, min: 0 },
     weightBasedShipping: { type: Boolean, default: false },
     weightRatePaisePerKg: { type: Number, default: 0, min: 0 },
     handlingPaise: { type: Number, default: 0, min: 0 },
     maxWeightPerOrderGrams: { type: Number, default: 0, min: 0 },
 
-    showEstimatedDelivery: { type: Boolean, default: false },
-    defaultEstimatedDeliveryDaysMin: { type: Number, default: null, min: 0 },
-    defaultEstimatedDeliveryDaysMax: { type: Number, default: null, min: 0 },
+    showEstimatedDelivery: { type: Boolean, default: true },
+    defaultEstimatedDeliveryDaysMin: { type: Number, default: 3, min: 0 },
+    defaultEstimatedDeliveryDaysMax: { type: Number, default: 6, min: 0 },
 
     codEnabled: { type: Boolean, default: false },
     codMaxOrderPaise: { type: Number, default: null, min: 0 },
@@ -151,6 +151,8 @@ const ShippingConfigurationSchema = new Schema<ShippingConfigurationDoc>(
 
     allowCancellation: { type: Boolean, default: true },
     cancelWindowHours: { type: Number, default: 24, min: 0 },
+
+    configVersion: { type: Number, default: SHIPPING_CONFIG_VERSION },
   },
   { timestamps: true, collection: 'shippingconfigurations' },
 );
@@ -176,31 +178,37 @@ export const SHIPPING_DEFAULTS: Omit<
   pickupContactPhone: '',
   pickupEmail: '',
 
-  // Shipping stays honestly OFF until an admin configures real origin + charges.
-  serviceabilityMode: 'DISABLED',
+  // Delivery dates come from the courier or from the admin-configured window
+  // below. They are never invented per-request. Live PIN checking is only turned
+  // on when the courier is actually connected, so the storefront degrades to the
+  // honest "we will confirm" message instead of erroring.
+  serviceabilityMode: serverEnv.delhivery.apiKey ? 'DELHIVERY_API' : 'DISABLED',
   serviceablePincodes: [],
   blockedPincodes: [],
 
   shippingDisabledMessage:
-    'Online ordering is being set up. Please check back shortly or use the contact page to reach us.',
+    'Online ordering is temporarily paused. Please check back shortly or use the contact page to reach us.',
   unserviceableMessage: 'We are not able to deliver to that PIN code at the moment.',
   unknownPincodeMessage:
     'We could not confirm this PIN code. Please continue with your order — we will contact you if there is a problem.',
   shippingPolicyNote: '',
 
-  shippingEnabled: false,
-  flatShippingPaise: 0,
-  freeShippingEnabled: false,
-  freeShippingThresholdPaise: null,
+  // Real, editable delivery charges. An admin overrides all of these in
+  // Admin → Shipping; these are only the values a fresh install starts with.
+  shippingEnabled: serverEnv.commerce.shippingEnabled,
+  flatShippingPaise: serverEnv.commerce.flatShippingPaise,
+  freeShippingEnabled: serverEnv.commerce.freeShippingEnabled,
+  freeShippingThresholdPaise: serverEnv.commerce.freeShippingEnabled
+    ? serverEnv.commerce.freeShippingThresholdPaise
+    : null,
   weightBasedShipping: false,
   weightRatePaisePerKg: 0,
-  handlingPaise: 0,
+  handlingPaise: serverEnv.commerce.handlingPaise,
   maxWeightPerOrderGrams: 0,
 
-  // Delivery dates are never fabricated.
-  showEstimatedDelivery: false,
-  defaultEstimatedDeliveryDaysMin: null,
-  defaultEstimatedDeliveryDaysMax: null,
+  showEstimatedDelivery: serverEnv.commerce.showEstimatedDelivery,
+  defaultEstimatedDeliveryDaysMin: serverEnv.commerce.estimatedDeliveryDaysMin,
+  defaultEstimatedDeliveryDaysMax: serverEnv.commerce.estimatedDeliveryDaysMax,
 
   codEnabled: false,
   codMaxOrderPaise: null,
@@ -215,6 +223,65 @@ export const SHIPPING_DEFAULTS: Omit<
   configVersion: SHIPPING_CONFIG_VERSION,
 };
 
+/**
+ * Has an admin ever edited this document?
+ *
+ * A "pristine" document is one still sitting on the untouched legacy defaults —
+ * shipping switched off, no origin address, no charges. Those are safe to
+ * upgrade to the current defaults. Anything else is a real business decision and
+ * is never rewritten by this module.
+ */
+function isPristineLegacyConfig(doc: ShippingConfigurationDoc): boolean {
+  return (
+    doc.shippingEnabled === false &&
+    !doc.freeShippingEnabled &&
+    (doc.flatShippingPaise ?? 0) === 0 &&
+    (doc.handlingPaise ?? 0) === 0 &&
+    (doc.weightRatePaisePerKg ?? 0) === 0 &&
+    doc.freeShippingThresholdPaise === null &&
+    !doc.pickupName &&
+    !doc.pickupPincode &&
+    !doc.pickupCity &&
+    (doc.serviceabilityMode ?? 'DISABLED') === 'DISABLED' &&
+    (doc.serviceablePincodes?.length ?? 0) === 0 &&
+    (doc.blockedPincodes?.length ?? 0) === 0 &&
+    doc.codEnabled === false
+  );
+}
+
+/**
+ * Bring an older, still-pristine document up to the current shipped defaults.
+ *
+ * This is what unblocks a store created by a previous build, where checkout was
+ * gated behind `shippingEnabled: false`. It deliberately refuses to touch a
+ * configuration an admin has configured.
+ */
+async function upgradeLegacyConfig(doc: ShippingConfigurationDoc): Promise<ShippingConfigurationDoc> {
+  if ((doc.configVersion ?? 0) >= SHIPPING_CONFIG_VERSION) return doc;
+  if (!isPristineLegacyConfig(doc)) {
+    // Configured by an admin — only stamp the version so we stop re-checking.
+    await ShippingConfiguration.updateOne({ _id: doc._id }, { $set: { configVersion: SHIPPING_CONFIG_VERSION } }).exec();
+    return { ...doc, configVersion: SHIPPING_CONFIG_VERSION };
+  }
+
+  const update: Record<string, unknown> = { configVersion: SHIPPING_CONFIG_VERSION };
+  if (serverEnv.commerce.shippingEnabled) {
+    update.shippingEnabled = SHIPPING_DEFAULTS.shippingEnabled;
+    update.flatShippingPaise = SHIPPING_DEFAULTS.flatShippingPaise;
+    update.handlingPaise = SHIPPING_DEFAULTS.handlingPaise;
+    update.freeShippingEnabled = SHIPPING_DEFAULTS.freeShippingEnabled;
+    update.freeShippingThresholdPaise = SHIPPING_DEFAULTS.freeShippingThresholdPaise;
+    update.showEstimatedDelivery = SHIPPING_DEFAULTS.showEstimatedDelivery;
+    update.defaultEstimatedDeliveryDaysMin = SHIPPING_DEFAULTS.defaultEstimatedDeliveryDaysMin;
+    update.defaultEstimatedDeliveryDaysMax = SHIPPING_DEFAULTS.defaultEstimatedDeliveryDaysMax;
+    update.shippingDisabledMessage = SHIPPING_DEFAULTS.shippingDisabledMessage;
+  }
+
+  await ShippingConfiguration.updateOne({ _id: doc._id }, { $set: update }).exec();
+  const fresh = (await ShippingConfiguration.findById(doc._id).lean().exec()) as ShippingConfigurationDoc;
+  return fresh ?? { ...doc, ...update } as ShippingConfigurationDoc;
+}
+
 /** Read-through cached config, so pricing does not hit Mongo on every request. */
 export async function getShippingConfig(
   opts: { fresh?: boolean } = {},
@@ -226,6 +293,8 @@ export async function getShippingConfig(
   let doc = (await ShippingConfiguration.findOne({}).lean().exec()) as ShippingConfigurationDoc | null;
   if (!doc) {
     doc = (await ShippingConfiguration.create(SHIPPING_DEFAULTS)).toObject() as ShippingConfigurationDoc;
+  } else if ((doc.configVersion ?? 0) < SHIPPING_CONFIG_VERSION) {
+    doc = await upgradeLegacyConfig(doc);
   }
   cached = { value: doc, at: Date.now() };
   return doc;
