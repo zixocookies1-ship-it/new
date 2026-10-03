@@ -1,7 +1,7 @@
 import { DashboardClient } from '@/components/admin/DashboardClient';
 
-export const metadata = { title: 'Overview' };
+export const metadata = { title: 'Dashboard' };
 
-export default function AdminOverviewPage() {
+export default function AdminDashboardPage() {
   return <DashboardClient />;
 }

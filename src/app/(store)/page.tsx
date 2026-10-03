@@ -3,11 +3,9 @@ import { notFound } from 'next/navigation';
 
 import { buildMetadata } from '@/lib/seo';
 import { getHomepageData } from '@/lib/catalog';
-import { getStoreCapabilities } from '@/lib/integrations';
 import { toPlain } from '@/lib/plain';
 
 import { Hero } from '@/components/home/Hero';
-import { TrustStrip } from '@/components/home/TrustStrip';
 import { BestSellersSection } from '@/components/home/BestSellersSection';
 import { WhySection } from '@/components/home/WhySection';
 import { ProcessSection } from '@/components/home/ProcessSection';
@@ -33,10 +31,6 @@ export default async function HomePage() {
   const { products, featured, bundles, reviews, recipes, content, settings, shipping } =
     data as any;
   const plainSettings = toPlain(settings) as any;
-  const capabilities = await getStoreCapabilities({
-    onlinePaymentEnabled: settings?.onlinePaymentEnabled ?? false,
-    codEnabled: shipping?.codEnabled ?? false,
-  });
 
   return (
     <div>
@@ -44,9 +38,8 @@ export default async function HomePage() {
         content={content?.hero}
         featured={featured}
         settings={plainSettings}
-        capabilities={capabilities}
+        capabilities={{ onlinePaymentEnabled: settings?.onlinePaymentEnabled ?? false, codEnabled: shipping?.codEnabled ?? false }}
       />
-      <TrustStrip content={content?.trust} capabilities={capabilities} shipping={shipping} />
       <BestSellersSection content={content?.flavours} products={products} />
       <WhySection content={content?.why} />
       <ProcessSection content={content?.process} />

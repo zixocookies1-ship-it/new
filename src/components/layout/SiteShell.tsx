@@ -4,7 +4,7 @@ import { Footer } from './Footer';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import type { BusinessSettingsDoc } from '@/lib/models/BusinessSettings';
 import type { ShippingConfigurationDoc } from '@/lib/models/ShippingConfiguration';
-import { getIntegrationHealth } from '@/lib/integrations';
+
 import type { IntegrationKey } from '@/lib/env';
 
 /**
@@ -20,7 +20,7 @@ export function SiteShell({
   shipping: ShippingConfigurationDoc;
   children: React.ReactNode;
 }) {
-  const health = getIntegrationHealth();
+  // Integration health is handled separately; no global health check here.
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -38,7 +38,7 @@ export function SiteShell({
         {children}
       </main>
 
-      <Footer settings={settings} shipping={shipping} health={health} />
+      <Footer settings={settings} shipping={shipping} />
       <CartDrawer />
     </div>
   );

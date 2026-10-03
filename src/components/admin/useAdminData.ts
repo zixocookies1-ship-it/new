@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { adminFetch, AdminError } from './api';
-
 /**
  * `useEffect`-based data loader for admin screens.
  *
@@ -40,15 +38,24 @@ export function useAdminData<T>(
     setLoading(true);
     setError(null);
 
-    adminFetch<T>(path, { signal: controller.signal })
+    fetch(path, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      credentials: 'same-origin',
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error('Network error');
+        return response.json();
+      })
       .then((result) => {
         if (!active) return;
         setData(result);
         setError(null);
       })
-      .catch((err: unknown) => {
+      .catch((err) => {
         if (!active || controller.signal.aborted) return;
-        setError(err instanceof AdminError ? err.message : 'Could not load this data.');
+        setError(err instanceof Error ? err.message : 'Could not load this data.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -94,7 +101,7 @@ export function useAdminAction(): {
     try {
       return await fn();
     } catch (err) {
-      setError(err instanceof AdminError ? err.message : 'Something went wrong.');
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
       return null;
     } finally {
       inFlight.current = false;

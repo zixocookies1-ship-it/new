@@ -1,13 +1,10 @@
-import Link from 'next/link';
 import { OptimizedImage } from '@/components/media/OptimizedImage';
 import { PlaceholderNote } from '@/components/ui/PlaceholderNote';
 import { Reveal } from '@/components/ui/Reveal';
 import { ButtonLink } from '@/components/ui/ButtonLink';
 import type { ProductVM } from '@/lib/catalog';
-import type { StoreCapabilities } from '@/lib/integrations';
 import type { ContentDoc } from '@/lib/models/Content';
 import type { BusinessSettingsDoc } from '@/lib/models/BusinessSettings';
-import { formatINR } from '@/lib/money';
 
 /**
  * Client-supplied hero banner. Full-bleed, intrinsic 2:1 (955 x 477).
@@ -35,7 +32,7 @@ export function Hero({
 }: {
   content: ContentDoc | null;
   settings: BusinessSettingsDoc;
-  capabilities: StoreCapabilities;
+  capabilities: Record<string, boolean>;
   featured: ProductVM | null;
 }) {
   const title = content?.title?.trim() || 'A sweeter way to choose better.';
@@ -127,10 +124,10 @@ export function Hero({
       </Reveal>
 
       {/* ---------------------------------------------------------------- */}
-      {/* Proof + product strip — sits below the banner                    */}
+      {/* Proof line — capability statements only, verified server-side     */}
       {/* ---------------------------------------------------------------- */}
-      <div className="nc-container relative pb-12 pt-8 sm:pb-16 sm:pt-10">
-        {proofs.length > 0 ? (
+      {proofs.length > 0 ? (
+        <div className="nc-container relative pb-12 pt-8 sm:pb-16 sm:pt-10">
           <Reveal delay={200}>
             <ul className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[0.8125rem] text-ink-muted">
               {proofs.map((p) => (
@@ -150,32 +147,8 @@ export function Hero({
               ))}
             </ul>
           </Reveal>
-        ) : null}
-
-        {featured && featured.pricePaise > 0 ? (
-          <Reveal delay={240}>
-            <div className="mx-auto mt-8 flex w-full max-w-md flex-wrap items-center justify-between gap-3 rounded-card border border-cream-300 bg-white/95 p-4 shadow-card backdrop-blur">
-              <p className="font-display text-[0.9375rem] text-jaggery-500">{featured.name}</p>
-              <div className="flex items-center gap-4">
-                <span className="text-xs text-ink-muted">
-                  {featured.variants.map((v) => v.weightLabel).join(' · ')}
-                </span>
-                <span className="text-sm font-semibold text-ginger-600">
-                  {featured.variants.length > 1
-                    ? `From ${formatINR(featured.pricePaise)}`
-                    : formatINR(featured.pricePaise)}
-                </span>
-                <Link
-                  href={`/products/${featured.slug}`}
-                  className="text-sm font-semibold text-jaggery-500 underline underline-offset-4 decoration-ginger-200 hover:decoration-ginger-500"
-                >
-                  View
-                </Link>
-              </div>
-            </div>
-          </Reveal>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -32,7 +32,7 @@ export default async function AdminPanelLayout({ children }: { children: React.R
   return (
     <div className="admin-focus flex min-h-screen flex-col lg:flex-row">
       {/* --------------------------------------------------------------- */}
-      {/* Sidebar                                                          */}
+      {/* Sidebar                                                           */}
       {/* --------------------------------------------------------------- */}
       <aside className="admin-no-print bg-jaggery-500 text-cream-50 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:shrink-0 lg:overflow-y-auto">
         <div className="flex items-center justify-between px-4 py-3.5 lg:block">
@@ -51,7 +51,7 @@ export default async function AdminPanelLayout({ children }: { children: React.R
               </svg>
             </span>
             <span className="flex flex-col leading-none">
-              <span className="font-display text-base">Nature&rsquo;s Choice</span>
+              <span className="font-display text-base">Nature's Choice</span>
               <span className="mt-0.5 text-2xs font-semibold uppercase tracking-widest text-cream-200/70">
                 Admin
               </span>
@@ -83,7 +83,7 @@ export default async function AdminPanelLayout({ children }: { children: React.R
       </aside>
 
       {/* --------------------------------------------------------------- */}
-      {/* Content                                                          */}
+      {/* Content                                                             */}
       {/* --------------------------------------------------------------- */}
       <div className="min-w-0 flex-1">
         {missing.length > 0 ? (

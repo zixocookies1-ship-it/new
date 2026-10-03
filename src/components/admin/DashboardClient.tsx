@@ -3,33 +3,72 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 
-import { adminFetch } from './api';
-import { useAdminAction, useAdminData } from './useAdminData';
+import { adminFetch } from '@/lib/admin-fetch';
+import { useAdminAction, useAdminData } from '@/components/admin/useAdminData';
 import {
   Btn,
   EmptyRow,
   InlineAlert,
   Loading,
-  ORDER_TONE,
-  PageHeader,
-  Panel,
-  PAYMENT_TONE,
   Pill,
-  StatTile,
   StatusPill,
-  SYNC_TONE,
   Table,
   Td,
   Th,
-  type PillTone,
-} from './ui';
-import type { OverviewResponse } from './types';
+  Toolbar,
+} from '@/components/admin/ui';
+import type { OverviewResponse } from '@/components/admin/types';
 import { formatINR } from '@/lib/money';
+
+type PillTone = 'neutral' | 'good' | 'warn' | 'bad' | 'info';
 
 const SEVERITY_TONE: Record<'blocking' | 'important' | 'optional', PillTone> = {
   blocking: 'bad',
   important: 'warn',
   optional: 'neutral',
+};
+
+function toneClass(tone: PillTone): string {
+  const toneMap: Record<PillTone, string> = {
+    neutral: 'text-ink',
+    good: 'text-leaf-600',
+    warn: 'text-ginger-700',
+    bad: 'text-[#8F3333]',
+    info: 'text-jaggery-600',
+  };
+  return toneMap[tone] || 'text-ink';
+}
+
+function toneBg(tone: PillTone): string {
+  const toneMap: Record<PillTone, string> = {
+    neutral: 'bg-cream-200 text-ink-soft',
+    good: 'bg-leaf-100 text-leaf-600',
+    warn: 'bg-ginger-100 text-ginger-800',
+    bad: 'bg-[#F6E2E2] text-[#8F3333]',
+    info: 'bg-jaggery-50 text-jaggery-600',
+  };
+  return toneMap[tone] || 'bg-cream-200 text-ink-soft';
+}
+
+/** @todo: Define ORDER_TONE, PAYMENT_TONE if needed from types */
+const ORDER_TONE: Record<string, PillTone> = {
+  ORDER_PLACED: 'info',
+  PAYMENT_PENDING: 'warn',
+  PAID: 'good',
+  PROCESSING: 'good',
+  SHIPPED: 'warn',
+  IN_TRANSIT: 'warn',
+  OUT_FOR_DELIVERY: 'warn',
+  DELIVERED: 'good',
+  CANCELLED: 'bad',
+  REFUNDED: 'neutral',
+};
+
+const PAYMENT_TONE: Record<string, PillTone> = {
+  PENDING: 'warn',
+  PAID: 'good',
+  FAILED: 'bad',
+  REFUNDED: 'neutral',
 };
 
 /**
@@ -67,217 +106,168 @@ export function DashboardClient() {
   const { stats, catalogue, moderation, capabilities, integrations, setupTasks } = data;
 
   return (
-    <>
-      <PageHeader
-        title="Overview"
-        description="Live figures from your database. Nothing here is estimated or seeded."
-      />
+    <div>
+      {/* --- Page Header --- */}
+      <h1 className="font-display text-2xl text-jaggery-500 mb-4">Dashboard</h1>
 
       {/* --- Needs attention ------------------------------------------------ */}
       {setupTasks.length > 0 ? (
-        <Panel
-          title="Setup checklist"
-          description="Work top to bottom. Until these are done the storefront will not advertise anything unverified."
-          className="mb-5"
-        >
+        <div className="rounded-xl border border-cream-300 bg-cream-50 p-4 sm:p-6 mb-6">
+          <h2 className="font-display text-base text-jaggery-500 mb-3">Setup checklist</h2>
+          <p className="text-sm text-ink-muted mb-3">
+            Work top to bottom. Until these are done the storefront will not advertise anything unverified.
+          </p>
           <ol className="space-y-2">
             {setupTasks.map((task) => (
-              <li
-                key={task.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-cream-200 px-3 py-2.5"
-              >
+              <li key={task.id} className="flex flex-wrap items-start justify-between rounded-lg border border-cream-200 px-3 py-2.5">
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
-                    <Pill tone={SEVERITY_TONE[task.severity]}>{task.severity}</Pill>
+                    <Pill tone={getSeverityTone(task.severity)}>{task.severity}</Pill>
                     {task.label}
                   </p>
                   <p className="mt-0.5 text-xs leading-relaxed text-ink-muted">{task.detail}</p>
                 </div>
-                <Link
+                <a
                   href={task.href}
                   className="shrink-0 rounded-lg border border-cream-400 bg-white px-2.5 py-1 text-xs font-semibold text-jaggery-500 hover:bg-cream-50"
                 >
                   Open
-                </Link>
+                </a>
               </li>
             ))}
           </ol>
-        </Panel>
+        </div>
       ) : (
-        <div className="mb-5">
-          <InlineAlert tone="good" title="Everything is connected">
-            All integrations are configured, shipping is on and no content is left unverified.
-          </InlineAlert>
+        <div className="mb-6">
+          <p className="text-sm text-ink-muted text-cream-200/80">All integrations are configured</p>
         </div>
       )}
 
       {/* --- Money ---------------------------------------------------------- */}
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile
-          label="Revenue (paid, all time)"
-          value={formatINR(stats.revenuePaise)}
-          hint={`${stats.paidOrders} paid order${stats.paidOrders === 1 ? '' : 's'}`}
-          href="/admin/orders?paymentStatus=PAID"
-        />
-        <StatTile
-          label="Revenue (last 30 days)"
-          value={formatINR(stats.revenueLast30Paise)}
-          hint={`Last 7 days: ${formatINR(stats.revenueLast7Paise)}`}
-        />
-        <StatTile
-          label="Average order value"
-          value={formatINR(stats.averageOrderValuePaise)}
-          hint="Paid orders only"
-        />
-        <StatTile
-          label="Awaiting payment"
-          value={stats.pendingPayment}
-          tone={stats.pendingPayment > 0 ? 'warn' : 'neutral'}
-          hint="Orders created but not paid"
-          href="/admin/orders?paymentStatus=PENDING"
-        />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
+        <div className="rounded-xl border border-cream-300 bg-white p-4">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Revenue (paid, all time)</p>
+          <p className="mt-1 font-display text-2xl tabular-nums">{formatINR(stats.revenuePaise)}</p>
+          <p className="text-xs mt-1 text-ink-muted">{stats.paidOrders} paid order{stats.paidOrders === 1 ? '' : 's'}</p>
+          <a
+            href="/admin/orders?paymentStatus=PAID"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-jaggery-500 underline underline-offset-4 hover:text-cream-50"
+          >
+            View orders
+          </a>
+        </div>
+        <div className="rounded-xl border border-cream-300 bg-white p-4">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Revenue (last 30 days)</p>
+          <p className="mt-1 font-display text-2xl tabular-nums">{formatINR(stats.revenueLast30Paise)}</p>
+          <p className="text-xs mt-1 text-ink-muted">
+            Last 7 days: {formatINR(stats.revenueLast7Paise)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-cream-300 bg-white p-4">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Average order value</p>
+          <p className="mt-1 font-display text-2xl tabular-nums">{formatINR(stats.averageOrderValuePaise)}</p>
+          <p className="text-xs mt-1 text-ink-muted">Paid orders only</p>
+        </div>
+        <div className="rounded-xl border border-cream-300 bg-white p-4">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Awaiting payment</p>
+          <p className="mt-1 font-display text-2xl {toneClass(stats.pendingPayment > 0 ? 'warn' : 'neutral')}">
+            {formatINR(stats.pendingPayment)}
+          </p>
+          <p className="text-xs mt-1 text-ink-muted">Orders created but not paid</p>
+          <a
+            href="/admin/orders?paymentStatus=PENDING"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-jaggery-500 underline underline-offset-4 hover:text-cream-50"
+          >
+            View orders
+          </a>
+        </div>
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Orders" value={stats.totalOrders} hint={`${stats.deliveredOrders} delivered`} />
-        <StatTile
-          label="Failed shipments"
-          value={stats.failedShippingSync}
-          tone={stats.failedShippingSync > 0 ? 'bad' : 'neutral'}
-          hint="Paid orders with no waybill"
-          href="/admin/orders?syncStatus=FAILED"
-        />
-        <StatTile
-          label="Reviews to moderate"
-          value={moderation.reviewsPending}
-          tone={moderation.reviewsPending > 0 ? 'warn' : 'neutral'}
-          hint={`${moderation.reviewsApproved} published`}
-          href="/admin/reviews"
-        />
-        <StatTile
-          label="New messages"
-          value={moderation.contactMessagesNew}
-          tone={moderation.contactMessagesNew > 0 ? 'warn' : 'neutral'}
-          hint="Contact form inbox"
-          href="/admin/messages"
-        />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
+        <div className="rounded-xl border border-cream-300 bg-white p-4">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Orders</p>
+          <p className="mt-1 font-display text-2xl">{stats.totalOrders}</p>
+          <p className="text-xs mt-1 text-ink-muted">{stats.deliveredOrders} delivered</p>
+        </div>
+        <div className="rounded-xl border border-cream-300 bg-white p-4">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Failed shipments</p>
+          <p className="mt-1 font-display text-2xl {toneClass(stats.failedShippingSync > 0 ? 'bad' : 'neutral')}">
+            {stats.failedShippingSync}
+          </p>
+          <p className="text-xs mt-1 text-ink-muted">Paid orders with no waybill</p>
+        </div>
+        <div className="rounded-xl border border-cream-300 bg-white p-4">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Reviews to moderate</p>
+          <p className="mt-1 font-display text-2xl {toneClass(moderation.reviewsPending > 0 ? 'warn' : 'neutral')}">
+            {moderation.reviewsPending}
+          </p>
+          <p className="text-xs mt-1 text-ink-muted">{moderation.reviewsApproved} published</p>
+        </div>
+        <div className="rounded-xl border border-cream-300 bg-white p-4">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">New messages</p>
+          <p className="mt-1 font-display text-2xl {toneClass(moderation.contactMessagesNew > 0 ? 'warn' : 'neutral')}">
+            {moderation.contactMessagesNew}
+          </p>
+          <p className="text-xs mt-1 text-ink-muted">Contact form inbox</p>
+        </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        {/* --- Revenue chart ------------------------------------------------ */}
-        <Panel
-          title="Paid revenue, last 30 days"
-          description="Only days with a paid order carry a bar. Flat days are real, not padding."
-          className="lg:col-span-2"
-        >
-          {chart.every((d) => d.revenuePaise === 0) ? (
-            <p className="py-8 text-center text-sm text-ink-muted">
-              No paid orders in the last 30 days yet.
-            </p>
-          ) : (
-            <>
-              <div className="flex h-40 items-end gap-[3px]" role="img" aria-label="Daily paid revenue for the last 30 days">
-                {chart.map((d) => (
-                  <div
-                    key={d.date}
-                    title={`${d.date}: ${formatINR(d.revenuePaise)}`}
-                    className="min-w-0 flex-1 rounded-t-sm bg-jaggery-500/80"
-                    style={{ height: `${Math.max(d.revenuePaise > 0 ? 4 : 1, d.heightPct)}%` }}
-                  />
-                ))}
-              </div>
-              <p className="mt-2 flex justify-between text-2xs text-ink-faint">
-                <span>{chart[0]?.date}</span>
-                <span>{chart[chart.length - 1]?.date}</span>
-              </p>
-            </>
-          )}
-        </Panel>
-
-        {/* --- Capabilities -------------------------------------------------- */}
-        <Panel title="What the storefront can claim" description="Each line is derived from the live configuration.">
-          <ul className="space-y-2 text-sm">
-            {[
-              { ok: capabilities.onlinePayments, label: 'Online payment (Razorpay)' },
-              { ok: capabilities.cod, label: 'Cash on delivery' },
-              { ok: capabilities.liveTracking, label: 'Live courier tracking' },
-              { ok: capabilities.images, label: 'Cloudinary image delivery' },
-            ].map((c) => (
-              <li key={c.label} className="flex items-center justify-between gap-3">
-                <span className="text-ink-soft">{c.label}</span>
-                <Pill tone={c.ok ? 'good' : 'neutral'}>{c.ok ? 'On' : 'Off'}</Pill>
-              </li>
+      {/* --- Revenue chart ------------------------------------------------ */}
+      <div className="rounded-xl border border-cream-300 bg-white p-4 sm:p-6 mb-6">
+        <h2 className="font-display text-base text-jaggery-500 mb-3">Paid revenue, last 30 days</h2>
+        <p className="text-sm text-ink-muted mb-3">
+          Only days with a paid order carry a bar. Flat days are real, not padding.
+        </p>
+        {chart.every((d) => d.revenuePaise === 0) ? (
+          <p className="py-8 text-center text-sm text-ink-muted">No paid orders in the last 30 days yet.</p>
+        ) : (
+          <div className="flex h-32 items-end gap-4" role="img" aria-label="Daily paid revenue for the last 30 days">
+            {chart.map((d) => (
+              <div
+                key={d.date}
+                title={`${d.date}: ${formatINR(d.revenuePaise)}`}
+                className="min-w-0 flex-1 rounded-t bg-jaggery-500/80"
+                style={{ height: `${Math.max(d.revenuePaise > 0 ? 4 : 1, d.heightPct)}%` }}
+              />
             ))}
-          </ul>
-
-          <div className="mt-4 border-t border-cream-200 pt-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Integrations
-            </p>
-            <ul className="space-y-1.5">
-              {integrations.map((i) => (
-                <li key={i.key} className="text-xs">
-                  <span className="text-ink-soft">{i.label}</span>{' '}
-                  <Pill tone={i.state === 'configured' ? 'good' : 'bad'}>
-                    {i.state === 'configured' ? 'Connected' : 'Missing'}
-                  </Pill>
-                  {i.state === 'missing' ? (
-                    <span className="mt-0.5 block text-2xs leading-relaxed text-ink-faint">{i.hint}</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
           </div>
-        </Panel>
+        )}
+        {chart.every((d) => d.revenuePaise === 0) || chart.length > 0 ? (
+          <p className="mt-2 flex justify-between text-2xs text-ink-faint">
+            <span>{chart[0]?.date}</span>
+            <span>{chart[chart.length - 1]?.date}</span>
+          </p>
+        ) : null}
+      </div>
+
+      {/* --- Capabilities -------------------------------------------------- */}
+      <div className="rounded-xl border border-cream-300 bg-white p-4 sm:p-6 mb-6">
+        <h2 className="font-display text-base text-jaggery-500 mb-3">What the storefront can claim</h2>
+        <p className="text-sm text-ink-muted">Each line is derived from the live configuration.</p>
+        <ul className="space-y-2 text-sm">
+          {[
+            { ok: capabilities.onlinePayments, label: 'Online payment (Razorpay)' },
+            { ok: capabilities.cod, label: 'Cash on delivery' },
+            { ok: capabilities.liveTracking, label: 'Live courier tracking' },
+            { ok: capabilities.images, label: 'Cloudinary image delivery' },
+          ].map((c) => (
+            <li key={c.label} className="flex items-center justify-between gap-3">
+              <span className="text-ink-soft">{c.label}</span>
+              <Pill tone={c.ok ? 'good' : 'neutral'}>
+                {c.ok ? 'On' : 'Off'}
+              </Pill>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* --- Recent orders -------------------------------------------------- */}
-      <Panel
-        title="Latest orders"
-        description="Newest first."
-        className="mt-5"
-        action={
-          <Btn
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              void shippingAction.run(async () => {
-                const res = await adminFetch<{ blockers: string[]; delhiveryConfigured: boolean }>(
-                  '/api/admin/orders/shipping?action=config-check',
-                  { method: 'POST', body: {} },
-                );
-                window.alert(
-                  res.blockers.length
-                    ? `Courier is not ready:\n\n- ${res.blockers.join('\n- ')}`
-                    : 'Courier is configured and ready to create shipments.',
-                );
-                return res;
-              });
-            }}
-            disabled={shippingAction.busy}
-            title="Check whether Delhivery can create shipments right now"
-          >
-            Check courier
-          </Btn>
-        }
-      >
-        <Table
-          minWidth={780}
-          headers={
-            <>
-              <Th>Order</Th>
-              <Th>Customer</Th>
-              <Th>Total</Th>
-              <Th>Status</Th>
-              <Th>Payment</Th>
-              <Th>Shipping</Th>
-              <Th>Sync</Th>
-              <Th />
-            </>
-          }
-        >
+      <div className="rounded-xl border border-cream-300 bg-white p-4 sm:p-6 mb-6">
+        <h2 className="font-display text-base text-jaggery-500 mb-3">Latest orders</h2>
+        <p className="text-sm text-ink-muted mb-3">Newest first.</p>
+        <Table minWidth={780} headers={<> <Th>Order</Th> <Th>Customer</Th> <Th>Total</Th> <Th>Status</Th> <Th>Payment</Th> <Th>Shipping</Th> <Th /></>}>
           {data.recentOrders.length === 0 ? (
-            <EmptyRow colSpan={8} message="No orders yet. They will appear here the moment a customer checks out." />
+            <EmptyRow colSpan={7} message="No orders yet. They will appear here the moment a customer checks out." />
           ) : (
             data.recentOrders.map((o) => (
               <tr key={o.orderId}>
@@ -291,9 +281,6 @@ export function DashboardClient() {
                   <StatusPill value={o.paymentStatus} map={PAYMENT_TONE} />
                 </Td>
                 <Td className="text-xs">{o.shippingStatus.replace(/_/g, ' ').toLowerCase()}</Td>
-                <Td className="text-xs">
-                  <StatusPill value={o.syncStatus} map={SYNC_TONE} />
-                </Td>
                 <Td>
                   <Link
                     href={`/admin/orders?q=${encodeURIComponent(o.orderId)}`}
@@ -306,11 +293,12 @@ export function DashboardClient() {
             ))
           )}
         </Table>
-      </Panel>
+      </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        {/* --- Catalogue ---------------------------------------------------- */}
-        <Panel title="Catalogue" description="Counts come straight from MongoDB.">
+      {/* --- Catalogue ---------------------------------------------------- */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-xl border border-cream-300 bg-white p-4 sm:p-6">
+          <h3 className="font-display text-sm text-jaggery-500 mb-2">Catalogue</h3>
           <ul className="space-y-2 text-sm">
             {[
               { label: 'Products (active)', value: `${catalogue.activeProducts} of ${catalogue.products}`, href: '/admin/products' },
@@ -322,9 +310,9 @@ export function DashboardClient() {
             ].map((row) => (
               <li key={row.label} className="flex items-center justify-between gap-3">
                 <span className="text-ink-soft">{row.label}</span>
-                <Link href={row.href} className="font-semibold text-jaggery-500 underline underline-offset-4">
+                <a href={row.href} className="font-semibold text-jaggery-500 underline underline-offset-4">
                   {row.value}
-                </Link>
+                </a>
               </li>
             ))}
           </ul>
@@ -337,34 +325,18 @@ export function DashboardClient() {
               </InlineAlert>
             </div>
           )}
-        </Panel>
+        </div>
 
         {/* --- Stock -------------------------------------------------------- */}
-        <Panel
-          title="Low stock"
-          description="Variants at or below their low-stock threshold."
-          action={
-            <Link href="/admin/products" className="text-xs font-semibold text-jaggery-500 underline underline-offset-4">
-              Manage
-            </Link>
-          }
-        >
+        <div className="rounded-xl border border-cream-300 bg-white p-4 sm:p-6">
+          <h3 className="font-display text-sm text-jaggery-500 mb-2">Low stock</h3>
+          <p className="text-sm text-ink-muted mb-2">
+            Variants at or below their low-stock threshold.
+          </p>
           {catalogue.lowStock.length === 0 ? (
-            <p className="py-6 text-center text-sm text-ink-muted">
-              Nothing is low. Set a threshold on a pack size to be warned here.
-            </p>
+            <p className="py-6 text-center text-sm text-ink-muted">Nothing is low. Set a threshold on a pack size to be warned here.</p>
           ) : (
-            <Table
-              minWidth={420}
-              headers={
-                <>
-                  <Th>Product</Th>
-                  <Th>Pack</Th>
-                  <Th>SKU</Th>
-                  <Th>In stock</Th>
-                </>
-              }
-            >
+            <Table minWidth={420} headers={<> <Th>Product</Th> <Th>Pack</Th> <Th>SKU</Th> <Th>In stock</Th> </>}>
               {catalogue.lowStock.map((v) => (
                 <tr key={v.id}>
                   <Td className="max-w-[160px] truncate">{v.productName}</Td>
@@ -379,22 +351,14 @@ export function DashboardClient() {
               ))}
             </Table>
           )}
-        </Panel>
+        </div>
       </div>
 
       {/* --- Top sellers --------------------------------------------------- */}
       {data.topProducts.length > 0 ? (
-        <Panel title="Best sellers by paid units" className="mt-5">
-          <Table
-            minWidth={420}
-            headers={
-              <>
-                <Th>Product</Th>
-                <Th>Units</Th>
-                <Th>Revenue</Th>
-              </>
-            }
-          >
+        <div className="rounded-xl border border-cream-300 bg-white p-4 sm:p-6 mt-6">
+          <h2 className="font-display text-base text-jaggery-500 mb-3">Best sellers by paid units</h2>
+          <Table minWidth={420} headers={<> <Th>Product</Th> <Th>Units</Th> <Th>Revenue</Th> </>}>
             {data.topProducts.map((p) => (
               <tr key={p._id}>
                 <Td>{p.name}</Td>
@@ -403,8 +367,18 @@ export function DashboardClient() {
               </tr>
             ))}
           </Table>
-        </Panel>
+        </div>
       ) : null}
-    </>
+    </div>
   );
+}
+
+/** Helper to get severity tone */
+function getSeverityTone(severity: 'blocking' | 'important' | 'optional'): PillTone {
+  const toneMap: Record<'blocking' | 'important' | 'optional', PillTone> = {
+    blocking: 'bad',
+    important: 'warn',
+    optional: 'neutral',
+  };
+  return toneMap[severity] || 'neutral';
 }

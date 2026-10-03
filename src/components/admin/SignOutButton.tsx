@@ -3,15 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { adminFetch } from './api';
-
-/**
- * Ends the admin session.
- *
- * The cookie is httpOnly, so the only way to drop it is a server call — hence
- * DELETE `/api/admin/auth`. We navigate with `replace` rather than `push` so the
- * signed-in admin panel never sits in session history after sign out.
- */
 export function SignOutButton() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -19,7 +10,7 @@ export function SignOutButton() {
   async function signOut() {
     setBusy(true);
     try {
-      await adminFetch<{ signedOut: boolean }>('/api/admin/auth', { method: 'DELETE' });
+      await fetch('/api/admin/auth', { method: 'DELETE' });
     } catch {
       // Even if the round-trip fails, sending them to the login page is the safe
       // outcome: the server-side layout guard will re-check the cookie anyway.

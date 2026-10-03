@@ -22,7 +22,7 @@ export function Footer({
 }: {
   settings: BusinessSettingsDoc;
   shipping: ShippingConfigurationDoc;
-  health: IntegrationHealth;
+  health?: IntegrationHealth;
 }) {
   const year = new Date().getFullYear();
 
@@ -50,12 +50,12 @@ export function Footer({
   // Capability statements are derived from configuration, never asserted.
   const capabilities: string[] = [];
   if (shipping.shippingEnabled) capabilities.push('Shipping across India');
-  if (settings.onlinePaymentEnabled && health.razorpay === 'configured')
+  if (settings.onlinePaymentEnabled && health?.razorpay === 'configured')
     capabilities.push('Secure online payments');
   if (shipping.codEnabled) capabilities.push('Cash on delivery available');
   if (shipping.freeShippingEnabled && shipping.freeShippingThresholdPaise)
     capabilities.push('Free shipping above a threshold');
-  if (health.delhivery === 'configured') capabilities.push('Tracked delivery');
+  if (health?.delhivery === 'configured') capabilities.push('Tracked delivery');
 
   return (
     <footer className="mt-20 bg-jaggery-700 text-cream-200 lg:mt-28">

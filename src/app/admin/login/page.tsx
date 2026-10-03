@@ -35,7 +35,7 @@ export default async function AdminLoginPage({
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-cream-300 bg-white p-6 shadow-card-hover sm:p-8">
           <div className="text-center">
-            <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-jaggery-500 text-cream-50">
+            <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-cream-500 text-cream-50">
               <svg viewBox="0 0 32 32" className="h-6 w-6" fill="none" aria-hidden="true">
                 <path
                   d="M11 11.5h10l-.9 12.2a2 2 0 0 1-2 1.8h-4.2a2 2 0 0 1-2-1.8L11 11.5Z"
@@ -50,12 +50,12 @@ export default async function AdminLoginPage({
             </span>
             <h1 className="mt-4 font-display text-2xl text-jaggery-500">Admin sign in</h1>
             <p className="mt-1.5 text-sm text-ink-muted">
-              Nature&rsquo;s Choice Jaggery — catalogue, orders and content.
+              Nature's Choice Jaggery — catalogue, orders and content.
             </p>
           </div>
 
           {authConfigured ? (
-            <LoginForm redirectTo={redirectTo} />
+            <LoginForm redirectTo={redirectTo ?? undefined} />
           ) : (
             <div className="mt-6 rounded-lg border border-ginger-200 bg-ginger-50 p-4 text-xs leading-relaxed text-ginger-800">
               <p className="font-semibold">Admin access is not configured yet.</p>

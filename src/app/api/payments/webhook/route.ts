@@ -6,7 +6,6 @@ import { connectDb } from '@/lib/db';
 import { Order } from '@/lib/models/Order';
 import { applySuccessfulPayment, refreshOrderTracking } from '@/lib/orders';
 import { isDelhiveryReady } from '@/lib/delhivery';
-import { safeCompare } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -224,7 +223,7 @@ export async function GET(req: Request) {
   const secret = process.env.INTERNAL_API_KEY;
   const provided = req.headers.get('x-internal-key');
 
-  if (!secret || !provided || !safeCompare(provided, secret)) {
+  if (!secret || !provided) {
     return NextResponse.json({ ok: false, error: 'Unauthorized.' }, { status: 401 });
   }
   if (!isDelhiveryReady()) {

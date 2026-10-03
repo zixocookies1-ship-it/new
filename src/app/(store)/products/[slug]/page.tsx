@@ -20,7 +20,6 @@ import {
   getApprovedReviewsForProduct,
   getFaqs,
 } from '@/lib/catalog';
-import { getStoreCapabilities } from '@/lib/integrations';
 import { buildMetadata, breadcrumbJsonLd, faqJsonLd, jsonLdScript, productJsonLd } from '@/lib/seo';
 
 export const revalidate = 60;
@@ -63,15 +62,15 @@ export default async function ProductPage({ params }: Params) {
     getStorefrontProducts().catch(() => ({ products: [], settings, shipping })),
   ]);
 
-  const capabilities = await getStoreCapabilities({
+  const capabilities = {
     onlinePaymentEnabled: settings.onlinePaymentEnabled,
     codEnabled: shipping.codEnabled,
-  });
+  };
 
   // Checkout is only offered when the courier is live AND at least one payment
   // path is genuinely available — a buy button that cannot complete is worse
   // than an honest "ordering is being set up".
-  const canCheckout = shipping.shippingEnabled && (capabilities.onlinePayments || capabilities.cod);
+  const canCheckout = shipping.shippingEnabled && (capabilities.onlinePaymentEnabled || capabilities.codEnabled);
 
   const related = products.filter((p) => p.id !== product.id).slice(0, 3);
 
