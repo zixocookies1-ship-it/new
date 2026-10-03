@@ -28,6 +28,7 @@ export function FounderSection({ content }: { content: ContentDoc | null }) {
 
   return (
     <section
+      id="founder"
       className="bg-white py-14 sm:py-20"
       aria-labelledby="founder-heading"
     >
@@ -75,12 +76,14 @@ export function FounderSection({ content }: { content: ContentDoc | null }) {
               </div>
             </Reveal>
 
-            <Reveal delay={160}>
-              <p className="mt-6 max-w-2xl text-sm text-ink-muted">
-                A photo of {FOUNDER_NAME.split(' ')[0]} will appear here
-                once the team has approved one.
-              </p>
-            </Reveal>
+            {!founderImage ? (
+              <Reveal delay={160}>
+                <p className="mt-6 max-w-2xl text-sm text-ink-muted">
+                  A photo of {FOUNDER_NAME.split(' ')[0]} will appear here
+                  once the team has approved one.
+                </p>
+              </Reveal>
+            ) : null}
           </div>
         </div>
       </div>

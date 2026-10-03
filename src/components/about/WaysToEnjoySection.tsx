@@ -19,9 +19,12 @@ import type { ContentDoc } from '@/lib/models/Content';
 
 /** Serving ideas with no full recipe behind them — ideas only. */
 const QUICK_IDEAS: Array<{ name: string; note: string }> = [
+  { name: 'Jaggery toast', note: 'Spoon over warm toast and let it melt' },
+  { name: 'Jaggery & milk', note: 'Stirred through warm milk or chai' },
   { name: 'Breakfast bowl', note: 'Drizzle over fruit, oats or yoghurt' },
   { name: 'Jaggery pancakes', note: 'Swap the sugar in your usual batter' },
-  { name: 'Simple desserts', note: 'Shave over kheer, ice cream or payasam' },
+  { name: 'Jaggery & banana', note: 'Shaved over sliced banana' },
+  { name: 'Simple desserts', note: 'Shaved over kheer, ice cream or payasam' },
   { name: 'Directly from the jar', note: 'The way the jar is meant to be used' },
 ];
 

@@ -21,8 +21,8 @@ export default function StoreNotFound() {
           <p className="nc-eyebrow">Error 404</p>
           <h1 className="nc-h1 mt-3">We could not find that page</h1>
           <p className="nc-lede mt-5">
-            The link may be old, or the page may have moved. Try the shop, our story,
-            or send us a message and we will point you the right way.
+            The link may be old, or the page may have moved. Try the shop, the about
+            page, or send us a message and we will point you the right way.
           </p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">

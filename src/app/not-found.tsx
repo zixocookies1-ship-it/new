@@ -17,8 +17,8 @@ export default function NotFound() {
         <p className="nc-eyebrow">Error 404</p>
         <h1 className="nc-h1 mt-3">We could not find that page</h1>
         <p className="nc-lede mt-5">
-          The link may be old, or the page may have moved. Try the shop, our story, or
-          send us a message and we will point you the right way.
+          The link may be old, or the page may have moved. Try the shop, the about
+          page, or send us a message and we will point you the right way.
         </p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -32,7 +32,7 @@ export default function NotFound() {
 
         <ul className="mx-auto mt-10 flex max-w-md flex-col gap-2 text-left">
           {[
-            { label: 'Our story', href: '/our-story' },
+            { label: 'About us', href: '/about' },
             { label: 'Contact us', href: '/contact' },
             { label: 'Your cart', href: '/cart' },
           ].map((l) => (

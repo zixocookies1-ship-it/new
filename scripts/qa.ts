@@ -23,7 +23,7 @@ const PAGES: Array<{ path: string; expect?: number; note?: string }> = [
   { path: '/products/desi-chocolatey-jaggery' },
   { path: '/products/desi-til-chocolatey-jaggery' },
   { path: '/products/desi-elaichi-chocolatey-jaggery' },
-  { path: '/our-story' },
+  { path: '/about' },
   { path: '/contact' },
   { path: '/cart' },
   { path: '/checkout' },
